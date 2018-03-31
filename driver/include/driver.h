@@ -14,6 +14,22 @@ class RemoteHostDescriptor
     //size_t max_
 };
 
+
+/**
+ * The job packager will package the contents of a job (i.e. the job descriptor and the input 
+ * image data) into a byte array for DMA. It will also be used as a common interface to consistently
+ * store and retrieve data from the same location in the byte buffer.
+ **/
+class JobPackager
+{
+    // Assumes byte_buffer is entirely in locally addressable memory
+    void CopyJobToBuffer(BYTE_T *byte_buffer, const JOB_DESCRIPTOR_IMPL *const job_descriptor) {
+
+    }
+
+
+}
+
 /**
  * This is not a thread-safe class, so don't try to dispatch jobs from multiple threads!!!
  * 
@@ -97,14 +113,13 @@ class JobDispatcher
         const size_t min_remote_buffer_alignment = ROUND_TO_NEXT_POWER_OF_2(bytes_needed_for_job_descr);
         BYTE_T *remote_job_buffer = CreateRemoteBuffer(bytes_needed_for_job, min_remote_buffer_alignment);
 
+        CopyJobDataToRemote(job_descriptor);
         for (int i = 0; i < job_descriptor->LDR_IMAGE_COUNT; i++) {
             DmaToRemoteBuffer(BYTE_T *const remote_buffer, const BYTE_T *const local_buffer, const size_t bytes_to_copy);
             SignalDoneDmaToRemoteForLdrImage(job_ID, ldr_image);
         }
         
-        void DmaToRemoteBuffer(BYTE_T *const remote_buffer, const BYTE_T *const local_buffer, const size_t bytes_to_copy);
         
-        CopyJobDataToRemote(job_descriptor);
 
         //Send
     }
