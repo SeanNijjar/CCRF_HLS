@@ -3,6 +3,7 @@
 #include <chrono>
 #include <vector>
 #include <map>
+
 typedef unsigned int JOB_ID_T;
 
 
@@ -23,12 +24,12 @@ class RemoteHostDescriptor
 class JobPackager
 {
     // Assumes byte_buffer is entirely in locally addressable memory
-    void CopyJobToBuffer(BYTE_T *byte_buffer, const JOB_DESCRIPTOR_IMPL *const job_descriptor) {
+    void CopyJobToBuffer(BYTE_T *byte_buffer, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor) {
 
     }
 
 
-}
+};
 
 /**
  * This is not a thread-safe class, so don't try to dispatch jobs from multiple threads!!!
@@ -44,8 +45,9 @@ class JobDispatcher
     {
         DISPATCH_MODE_FIRST = 0,
         DISPATCH_MODE_EXCLUSIVE = 0,
-        DISPATCH_MODE_ASAP = DISPATCH_MODE_EXCLUSIVE + 1
-    }
+        DISPATCH_MODE_EXCLUSIVE_BLOCKING,
+        DISPATCH_MODE_ASAP
+    };
 
     enum E_JOB_STATUS 
     {
@@ -61,18 +63,16 @@ class JobDispatcher
         JOB_STATUS_CLOSED_ON_REMOTE,
         JOB_STATUS_CLEANING_UP_REMOTE,
         JOB_STATUS_TELL_APPLICATION_DONE,
+        
+        // More tasks can be deployed once we hit this state, it's just
+        // that resources need to be cleaned up
         JOB_STATUS_CLEANUP_FINAL,
         JOB_STATUS_DONE,
 
         JOB_STATUS_LAST = JOB_STATUS_DONE
     };
 
-    JobDispatcher(E_DISPATCH_MODE _dispatch_mode) :
-        next_available_job_ID(0),
-        dispatch_mode(_dispatch_mode)
-    {
-        ASSERT(_dispatch_mode == DISPATCH_MODE_EXCLUSIVE, "Created job dispatched in non-exclusive mode. Only DISPATCH_MODE_EXCLUSIVE is currently supported");
-    }
+    JobDispatcher(E_DISPATCH_MODE _dispatch_mode);
 
     /** This function will attempt to dispatch the job to the remote HDR processor.
      *  However, if the remote HDR processor is unable to currently accept this job
@@ -80,79 +80,23 @@ class JobDispatcher
      *  push the job to the waiting jobs queue. The job will *actually* be dispatched
      *  to the remote processor when the resources are available
      **/
-    JOB_ID_T DispatchJob(const JOB_DESCRIPTOR_IMPL *const job_descriptor) 
-    {
-        UNIMPLEMENTED();
-        const JOB_ID_T job_ID = next_available_job_ID++;
-        if (dispatch_mode == DISPATCH_MODE_EXCLUSIVE) {
+    JOB_ID_T DispatchJob(const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor);
 
-        } else {
+    auto GetTotalJobExecutionTime(const JOB_ID_T) const;
 
-        }
-
-        return job_ID;
-    }
-
-    auto GetTotalJobExecutionTime(const JOB_ID_T) const {
-        UNIMPLEMENTED();
-    }
+    void WaitForJobsToFinish();
 
   private:
-    void TransferJobToRemote(const JOB_ID_T job_ID, const JOB_DESCRIPTOR_IMPL *const job_descriptor) {
-        UNIMPLEMENTED();
-        job_status = JOB_STATUS_COPYING_TO_REMOTE;
-        active_job_queue.push_back(job_ID);
+    void TransferJobToRemote(const JOB_ID_T job_ID, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor);
 
-        // Create the 
-        const int num_LDR_images_in_job = job_descriptor->LDR_IMAGE_COUNT;
-        const int num_HDR_outputs_in_job = 1;
+    void SignalDoneDmaToRemoteForLdrImage(const JOB_ID_T job_ID, const int ldr_image_num) const;
 
-        const size_t bytes_needed_for_job_descr = JobDescriptor::BytesNeededForJobDescriptor(num_LDR_images_in_job);
-        const size_t bytes_needed_for_job = bytes_needed_for_job_descr + 
-                                            (num_LDR_images_in_job + num_HDR_outputs_in_job) * job_descriptor->IMAGE_SIZE;
-        const size_t min_remote_buffer_alignment = ROUND_TO_NEXT_POWER_OF_2(bytes_needed_for_job_descr);
-        BYTE_T *remote_job_buffer = CreateRemoteBuffer(bytes_needed_for_job, min_remote_buffer_alignment);
+    void DispatchJobExclusive(const JOB_ID_T job_ID, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor);
 
-        CopyJobDataToRemote(job_descriptor);
-        for (int i = 0; i < job_descriptor->LDR_IMAGE_COUNT; i++) {
-            DmaToRemoteBuffer(BYTE_T *const remote_buffer, const BYTE_T *const local_buffer, const size_t bytes_to_copy);
-            SignalDoneDmaToRemoteForLdrImage(job_ID, ldr_image);
-        }
-        
-        
-
-        //Send
-    }
-
-    void SignalDoneDmaToRemoteForLdrImage(const JOB_ID_T job_ID, const int ldr_image_num) const {
-        UNIMPLEMENTED_QUIET("Function SignalDoneDmaToRemoteForLdrImage currently doesn't do anything...");
-    }
-
-    void DispatchJobExclusive(const JOB_ID_T job_ID, const JOB_DESCRIPTOR_IMPL *const job_descriptor) {
-        UNIMPLEMENTED();
-    }
-
-    void DispatchJobASAP(const JOB_ID_T job_ID, const JOB_DESCRIPTOR_IMPL *const job_descriptor) {
-        UNIMPLEMENTED();
-        /*
-        E_JOB_STATUS job_status = JOB_STATUS_INVALID;
-        if(TryJobDispatch() == false) {
-            job_status = JOB_STATUS_NOT_STARTED;
-            waiting_jobs_queue.push_back(job_ID);
-        } else {
-            TransferJobToRemote(job_ID, job_descriptor)
-
-            
-
-
-        }
-
-        */
-    }
+    void DispatchJobASAP(const JOB_ID_T job_ID, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor);
 
   private:
-    std::map<JOB_ID_T, 
-    std::map<JOB_ID_T, JOB_DESCRIPTOR_IMPL*> job_descriptor_map;
+    std::map<JOB_ID_T, JobDescriptor::JOB_DESCRIPTOR_T*> job_descriptor_map;
 
     // These are the jobs currently being processed on the remote processor
     std::vector<JOB_ID_T> active_job_queue;
@@ -168,39 +112,24 @@ class JobDispatcher
 };
 
 
-E_JOB_STATUS GetJobStatus(const JOB_ID_T)
-{
-    UNIMPLEMENTED();
-}
+JobDispatcher::E_JOB_STATUS GetJobStatus(const JOB_ID_T);
 
 // SUPPORTS COMPILATION FOR SW ONLY AND HW_SW MODES FOR TESTING
-BYTE_T *CreateRemoteBuffer(const size_t buffer_size_in_bytes, const size_t min_address_alignment) {
-    if (global_options.operating_mode == OPERATING_MODE_SW_ONLY) {
-        UNIMPLEMENTED();
-    } else if (global_options.operating_mode == OPERATING_MODE_HW_AND_SW) {
-        ASSERT(false, "OPERATING_MODE_HW_AND_SW unimplemented in CreateRemoteBuffer");
-    } else {
-        if (global_options.operating_mode <= OPERATING_MODE_LAST) {
-            ASSERT(false, "Implementation for operating mode" << global_options.operating_mode << " is missing");
-        } else if (global_options.operating_mode == OPERATING_MODE_INVALID) {
-            ASSERT(false, "INVALID OPERATING MODE");
-        } else {
-            ASSERT(false, "CONFUSED ABOUT OPERATING MODE");
-        }
-    }
-}
+BYTE_T *CreateRemoteBuffer(const size_t buffer_size_in_bytes, const size_t min_address_alignment);
 
 // SUPPORTS COMPILATION FOR SW ONLY AND HW_SW MODES FOR TESTING
 // BUT FOR NOW, JUST TRY USING THE SAME DMA LOGIC FOR BOTH PATHS, SEE IF IT WORKS
-void DmaToRemoteBuffer(BYTE_T *const remote_buffer, const BYTE_T *const local_buffer, const size_t bytes_to_copy)
-{
-    UNIMPLEMENTED();
-}
+// TODO: see if there is a better way to remotely map the address rather than having 
+//       to manually pass it in
+void DmaToRemoteBuffer(const std::weak_ptr<BYTE_T> const remote_buffer, 
+                       const std::weak_ptr<BYTE_T> const local_buffer, 
+                       const size_t bytes_to_copy, 
+                       const uint32_t remote_job_start_address);
 
 // SUPPORTS COMPILATION FOR SW ONLY AND HW_SW MODES FOR TESTING
 // BUT FOR NOW, JUST TRY USING THE SAME DMA LOGIC FOR BOTH PATHS, SEE IF IT WORKS
-void DmaFromRemoteBuffer(BYTE_T *const local_buffer, const BYTE_T *const remote_buffer, const size_t bytes_to_copy)
-{
-    UNIMPLEMENTED();
-}
+void DmaFromRemoteBuffer(const std::weak_ptr<BYTE_T> const local_buffer, 
+                         const std::weak_ptr<BYTE_T> const remote_buffer, 
+                         const size_t bytes_to_read, 
+                         const uint32_t remote_job_output_address);
 
