@@ -2,6 +2,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include "common/include/global_options.h"
+#include "common/include/job_descriptor/*.h"
 
 JobDispatcher::JobDispatcher(E_DISPATCH_MODE _dispatch_mode) :
     next_available_job_ID(0),
@@ -34,6 +35,7 @@ auto JobDispatcher::GetTotalJobExecutionTime(const JOB_ID_T) const
 void JobDispatcher::WaitForJobsToFinish() 
 {
     // volatile - but will this treat it that way?
+    // TODO: with interrupts, we should be able to just sleep here until the job queue is empty
     while(active_job_queue.size()) 
     {
         ;// spin_lock - for now, the interrupt handler will be notified
@@ -58,6 +60,8 @@ void JobDispatcher::TransferJobToRemote(const JOB_ID_T job_ID, const JobDescript
                                         (num_LDR_images_in_job + num_HDR_outputs_in_job) * job_descriptor->IMAGE_SIZE;
     const size_t min_remote_buffer_alignment = ROUND_TO_NEXT_POWER_OF_2(bytes_needed_for_job_descr);
     BYTE_T *remote_job_buffer = CreateRemoteBuffer(bytes_needed_for_job, min_remote_buffer_alignment);
+
+    JobPackage::ConsolidateJob(remote_job_buffer, job_descriptor); // Will compact all job data into a contiguous array
 
     CopyJobDataToRemote(job_descriptor);
     for (int i = 0; i < job_descriptor->LDR_IMAGE_COUNT; i++) {
