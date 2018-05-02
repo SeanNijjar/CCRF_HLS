@@ -1,8 +1,9 @@
-#include "driver.h"
+#include "driver.hpp"
 #include <unistd.h>
 #include <fcntl.h>
-#include "global_options.h"
-#include "job_descriptor/*.h"
+#include "global_options.hpp"
+#include "job_descriptor.hpp"
+#include "job_package.hpp"
 
 JobDispatcher::JobDispatcher(E_DISPATCH_MODE _dispatch_mode) :
     next_available_job_ID(0),
@@ -18,9 +19,9 @@ JOB_ID_T JobDispatcher::DispatchJob(const JobDescriptor::JOB_DESCRIPTOR_T *const
     if (dispatch_mode == DISPATCH_MODE_EXCLUSIVE_BLOCKING) {
 
     } else if (dispatch_mode == DISPATCH_MODE_EXCLUSIVE) {
-        DispatchJobExclusive();
+        DispatchJobExclusive(job_ID, job_descriptor);
     } else {
-
+        UNIMPLEMENTED();
     }
 
     return job_ID;
@@ -48,7 +49,7 @@ void JobDispatcher::WaitForJobsToFinish()
 void JobDispatcher::TransferJobToRemote(const JOB_ID_T job_ID, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor) 
 {
     UNIMPLEMENTED();
-    job_status = JOB_STATUS_COPYING_TO_REMOTE;
+    JobDispatcher::E_JOB_STATUS job_status = JOB_STATUS_COPYING_TO_REMOTE;
     active_job_queue.push_back(job_ID);
 
     // Create the 

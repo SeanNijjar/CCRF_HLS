@@ -19,14 +19,7 @@ struct GraphNode
     {}
 };
 
-int expected_subtask_count (int ldr_img_count)
-{
-    if (ldr_img_count == 1) {
-        return 0;
-    } else {
-        return expected_subtask_count(ldr_img_count-1) + ldr_img_count-1;
-    }
-};
+
 
 int main(int argc, char *argv[]) {
     int test_result = 0;

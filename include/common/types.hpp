@@ -27,16 +27,19 @@ typedef struct IMAGE_STRUCT {
 typedef std::vector<IMAGE_T> IMAGE_STACK_T;
 
 struct JOB_SUBTASK {
-    const PIXEL_T *input1;
-    const PIXEL_T *input2;
-    const PIXEL_T *output;
-    const int image_size;
+    PIXEL_T *input1;
+    PIXEL_T *input2;
+    PIXEL_T *output;
+    int image_size;
 
-    JOB_SUBTASK(const PIXEL_T *const _input1, const PIXEL_T *const _input2, const PIXEL_T *const _output, const int _image_size) :
-        input1(_input1), input2(_input2), output(_output), image_size(_image_size)
-    {}
-    //JOB_SUBTASK() : input1(nullptr), input2(nullptr), output(nullptr), size(0)
-    //{}
+    void Initialize(PIXEL_T * _input1, PIXEL_T * _input2, PIXEL_T *_output, int _image_size)
+    {
+        input1 = _input1;
+        input2 = _input2;
+        output = _output;
+        image_size = _image_size;
+    }
+
 };
 
 struct JOB_COMPLETION_PACKET {

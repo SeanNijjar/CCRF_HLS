@@ -11,6 +11,7 @@ TEST_COMPONENTS := test
 SRC_DIRS := $(addprefix src/,$(COMPONENTS))
 TEST_DIRS := $(addprefix test/,$(COMPONENTS))
 INC_DIRS := $(addprefix include/,$(COMPONENTS))
+INC_DIRS := $(INCDIRS) /home/opt/Xilinx/Vivado_HLS/2017.2/include/
 BUILD_DIRS := $(addprefix build/,$(COMPONENTS))
 
 BUILD_TEST_DIRS := $(addprefix $(BUILDTESTDIR)/,$(COMPONENTS))
@@ -43,8 +44,12 @@ checkdirs: $(BUILD_DIRS) $(BUILD_TEST_DIRS)
 
 all: checkdirs $(OBJS) 
 
-ccrf_scheduler_test: all $(TEST_OBJS)
-	$(COMP) $(OBJS) $(BUILDTESTDIR)/scheduler/sw_test_ccrf_scheduler.o -o $@ 
+#ccrf_scheduler_test: all $(TEST_OBJS)
+ccrf_scheduler_test: 
+	g++ -std=c++14 -Iinclude/ -Iinclude/ccrf -Iinclude/scheduler/ -Iinclude/common -Iinclude/common/job_descriptor/  \
+	src/scheduler/ccrf_scheduler.cpp src/common/job_descriptor/job_descriptor.cpp test/scheduler/sw_test_ccrf_scheduler.cpp \
+	src/ccrf/ccrf.cpp -o sw_test_ccrf_scheduler -I/home/opt/Xilinx/Vivado_HLS/2017.2/include/ -g
+	#$(COMP) $(OBJS) $(BUILDTESTDIR)/scheduler/sw_test_ccrf_scheduler.o -o $@ 
 
 run_scheduler_test: all ccrf_scheduler_test
 	./build_test/ccrf_scheduler_test

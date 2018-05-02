@@ -7,7 +7,13 @@
 class CCRF 
 {
   public:
-    const PIXEL_T *const GetTaskDependence(const int i) {
+    const bool is_idle() const
+    {
+        UNIMPLEMENTED(); // Won't complain but just for reading
+    }
+
+    const PIXEL_T *const GetTaskDependence(const int i) const
+    {
         assert(i > 0 && i < 3);
         
         switch(i) {
@@ -20,7 +26,10 @@ class CCRF
         };
     }
 
-    
+    const void run(JOB_SUBTASK task_to_run)
+    {
+        UNIMPLEMENTED();
+    }
 
   private:
     JOB_SUBTASK ccrf_task_details;

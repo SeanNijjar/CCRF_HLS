@@ -121,15 +121,15 @@ BYTE_T *CreateRemoteBuffer(const size_t buffer_size_in_bytes, const size_t min_a
 // BUT FOR NOW, JUST TRY USING THE SAME DMA LOGIC FOR BOTH PATHS, SEE IF IT WORKS
 // TODO: see if there is a better way to remotely map the address rather than having 
 //       to manually pass it in
-void DmaToRemoteBuffer(const std::weak_ptr<BYTE_T> const remote_buffer, 
-                       const std::weak_ptr<BYTE_T> const local_buffer, 
+void DmaToRemoteBuffer(const BYTE_T * const remote_buffer, 
+                       const BYTE_T * const local_buffer, 
                        const size_t bytes_to_copy, 
                        const uint32_t remote_job_start_address);
 
 // SUPPORTS COMPILATION FOR SW ONLY AND HW_SW MODES FOR TESTING
 // BUT FOR NOW, JUST TRY USING THE SAME DMA LOGIC FOR BOTH PATHS, SEE IF IT WORKS
-void DmaFromRemoteBuffer(const std::weak_ptr<BYTE_T> const local_buffer, 
-                         const std::weak_ptr<BYTE_T> const remote_buffer, 
+void DmaFromRemoteBuffer(const BYTE_T * const local_buffer, 
+                         const BYTE_T * const remote_buffer, 
                          const size_t bytes_to_read, 
                          const uint32_t remote_job_output_address);
 

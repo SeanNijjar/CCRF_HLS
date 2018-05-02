@@ -36,7 +36,8 @@ class JobDescriptor
         JOB_DESCRIPTOR_IMPL *job_descriptor = InterpretRawBufferAsJobDescriptor(
                                                 new BYTE_T[JobDescriptor::BytesNeededForJobDescriptor(num_images)]
                                               );
-
+        job_descriptor->IMAGE_SIZE = height * width;
+        job_descriptor->LDR_IMAGE_COUNT = num_images;
         int i = 0;
         for (auto image : image_stack) {
             ASSERT(image.width == width, "Image width dimensions for image " << i << " in stack don't match image 0 width");
@@ -44,6 +45,7 @@ class JobDescriptor
             job_descriptor->INPUT_IMAGES[i] = image.data;
         }
     
+        return job_descriptor;
     }
 
     static const int BytesNeededForEntireJob(const JOB_DESCRIPTOR_T *const job_descriptor) {
