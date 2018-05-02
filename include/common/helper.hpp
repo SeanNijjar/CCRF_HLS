@@ -1,5 +1,6 @@
-#pragma once
-#include <assert.h>
+#ifndef HELPER_H
+#define HELPER_H
+#include <cassert>
 #include <iostream>
 
 enum E_OPERATING_MODES
@@ -43,3 +44,6 @@ const unsigned int ROUND_TO_NEXT_POWER_OF_2(const unsigned int value);
 
 #define DO_PRAGMA_INNER(x) _Pragma (#x)
 #define DO_PRAGMA(x) DO_PRAGMA_INNER(x)
+
+
+#endif

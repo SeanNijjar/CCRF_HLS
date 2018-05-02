@@ -1,6 +1,6 @@
-#include "common/include/utils.h"
-#include "common/include/helper.h"
-#include "driver/include/driver.h"
+#include "utils.hpp"
+#include "helper.hpp"
+#include "driver.hpp"
 
 #include <string>
 
@@ -8,7 +8,6 @@ int main(int argc, char *argv[])
 {
     ASSERT(argc > 1, "Expect at least one path to a set of file lists to test");
 
-    Job
 
     // Read in the test image sets
     std::vector<IMAGE_STACK_T> image_stacks;

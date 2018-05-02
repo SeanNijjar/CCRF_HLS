@@ -1,8 +1,8 @@
-#include "driver/include/driver.h"
+#include "driver.h"
 #include <unistd.h>
 #include <fcntl.h>
-#include "common/include/global_options.h"
-#include "common/include/job_descriptor/*.h"
+#include "global_options.h"
+#include "job_descriptor/*.h"
 
 JobDispatcher::JobDispatcher(E_DISPATCH_MODE _dispatch_mode) :
     next_available_job_ID(0),

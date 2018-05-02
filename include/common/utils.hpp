@@ -1,25 +1,26 @@
-#pragma once
+#ifndef UTILS_H
+#define UTILS_H
 
-#include "common/include/types.h"
-#include <vector>
-#include <string>
+#include "types.hpp"
 
 // for the .cpp
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <iostream>
-#include <ifstream>
+#include <fstream>
+#include <vector>
+#include <string>
 
 std::vector<std::string> ReadFileContents(std::string file_path) 
 {
-    std::vector<std:string> contents;
+    std::vector<std::string> contents;
     std::ifstream file(file_path, std::ifstream::in);
-    file_list.open();
-
-    string file_line = file_list.read_line();
-    while (file_list.good()) {
+    
+    std::string file_line;
+    std::getline(file, file_line);
+    while (file.good()) {
         contents.push_back(file_line);
-        file_line = file_list.read_line();
+        std::getline(file, file_line);
     }
 
     return contents;
@@ -29,12 +30,12 @@ IMAGE_STACK_T ReadImageStackImages(std::string image_stack_file_list)
 {
     IMAGE_STACK_T image_stack;
     std::ifstream file_list(image_stack_file_list, std::ifstream::in);
-    file_list.open();
-
-    string LDR_image_file = file_list.read_line();
+    
+    std::string LDR_image_file;
+    std::getline(file_list, LDR_image_file);
     while (file_list.good()) {
         image_stack.push_back(LDR_image_file);
-        LDR_image_file = file_list.read_line();
+        std::getline(file_list, LDR_image_file);
     }
 
     return image_stack;
@@ -61,3 +62,5 @@ IMAGE_T ReadImageFile(std::string image_file_path)
 
     return {(PIXEL_T*)image_matrix.data, image_matrix.rows, image_matrix.cols};
 }
+
+#endif

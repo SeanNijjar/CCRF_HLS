@@ -1,7 +1,8 @@
-#pragma once
+#ifndef JOB_DESCRIPTOR_H
+#define JOB_DESCRIPTOR_H
 
-#include "common/include/types.h"
-#include "common/include/helper.h"
+#include "types.hpp"
+#include "helper.hpp"
 
 #include <stddef.h>
 #include <string.h>
@@ -19,12 +20,12 @@ class JobDescriptor
 
 
   public:
-    typedef JOB_DESCRIPTOR_IMPL JOB_DESCRIPTOR_T;
+    using JOB_DESCRIPTOR_T = JOB_DESCRIPTOR_IMPL;
     const JOB_DESCRIPTOR_T *GetHandle();
 
     
 
-    JOB_DESCRIPTOR_T *Create(IMAGE_STACK_T image_stack)
+    static JOB_DESCRIPTOR_T *Create(IMAGE_STACK_T image_stack)
     {
         const int num_images = image_stack.size();
         ASSERT(num_images > 0, "Given an empty image stack");
@@ -113,3 +114,4 @@ class JobDescriptor
     
 };
 
+#endif
