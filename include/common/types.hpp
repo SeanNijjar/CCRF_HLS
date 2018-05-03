@@ -2,6 +2,8 @@
 #define TYPES_H
 #include <vector>
 
+typedef unsigned int JOB_ID_T;
+
 typedef unsigned char BYTE_T;
 
 typedef struct PIXEL_STRUCT {
@@ -40,6 +42,18 @@ struct JOB_SUBTASK {
         image_size = _image_size;
     }
 
+};
+
+struct JOB_STATUS_MESSAGE
+{
+    enum E_PACKET_TYPES {
+        JOB_ACCEPT_PACKET = 0,
+        JOB_REJECT_PACKET,
+        JOB_DONE_PACKET
+    };
+
+    char packet_message_type;
+    JOB_ID_T job_ID;
 };
 
 struct JOB_COMPLETION_PACKET {

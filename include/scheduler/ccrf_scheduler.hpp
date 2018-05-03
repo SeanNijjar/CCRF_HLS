@@ -12,9 +12,43 @@ const int CCRF_COMPUTE_UNIT_COUNT = NUM_CCRF_UNITS;
 
 const int DISPATCHER_STREAM_DEPTH = 15; // Enough to start an entire task list for a 5 LDR image stack
 const int INPUT_JOB_STREAM_DEPTH = 5; // technically a size of 1 should be sufficient
-
+const int RESPONSE_QUEUE_DEPTH = 32;
+const int COMPLETED_JOBS_QUEUE_DEPTH = 16;
+static_assert(RESPONSE_QUEUE_DEPTH >= COMPLETED_JOBS_QUEUE_DEPTH, "RESPONSE_QUEUE_DEPTH must be >= COMPLETED_JOBS_QUEUE_DEPTH");
+const int JOBS_TO_SCHEDULE_QUEUE_DEPTH = 16;
 // TODO: Ideally this can be passed to the FPGA
 extern PIXEL_T *CCRF_SCRATCHPAD_START_ADDR;
+
+template <bool hw_implement>
+void CCRF_Scheduler(hls::stream<JobPackage> incoming_job_requests, 
+                    hls::stream<JOB_STATUS_MESSAGE> response_message_queue,
+                    hls::stream<JobDescriptor::JOB_DESCRIPTOR_T> jobs_to_schedule_queue,
+                    hls::stream<JOB_COMPLETION_PACKET> completed_jobs_queue)
+{
+    DO_PRAGMA(HLS stream depth=RESPONSE_QUEUE_DEPTH variable=response_message_queue)
+    DO_PRAGMA(HLS stream depth=RESPONSE_QUEUE_DEPTH variable=job_requests)
+    DO_PRAGMA(HLS stream depth=JOBS_TO_SCHEDULE_QUEUE_DEPTH variable=jobs_to_schedule_queue)
+    DO_PRAGMA(HLS stream depth=COMPLETED_JOBS_QUEUE_DEPTH variable=completed_jobs_queue)
+
+    do {
+        while(!completed_jobs.empty()) {
+            JOB_COMPLETION_PACKET completed_job;
+            JOB_STATUS_MESSAGE completion_packet_for_host;
+            completion_packet_for_host.packet_message_type = JOB_STATUS_MESSAGE::JOB_DONE_PACKET;
+            completion_packet_for_host.job_ID = completed_job.job_ID;
+            ASSERT(!response_message_queue.full(), "response message queue is full");
+            response_message_queue.write(completion_packet_for_host);
+        }
+
+        if (!incoming_job_requests.empty()) {
+            JOB_STATUS_MESSAGE response_packet;
+            JobPackage job_request = incoming_job_requests.read();
+            response_packet.packet_message_type = (jobs_to_schedule.full()) ? JOB_STATUS_MESSAGE::JOB_REJECT_PACKET : JOB_STATUS_MESSAGE::JOB_ACCEPT_PACKET;
+            response_packet.job_ID = job_request.job_ID;
+            response_message_queue.write(reponse_packet);
+        }
+    } while (hw_implement);
+}
 
 template <bool hw_implement = true>
 void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
@@ -22,8 +56,8 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
                        hls::stream<PIXEL_T*> CCRF_completed_outputs[CCRF_COMPUTE_UNIT_COUNT])
 {
     DO_PRAGMA(HLS stream depth=DISPATCHER_STREAM_DEPTH variable=CCRF_completed_outputs)
-    DO_PRAGMA(HLS stream depth=2 variable=completed_job_queue)
-    DO_PRAGMA(HLS stream depth=1 variable=jobs_in_progress); // Force only one job allowed at a time    
+    DO_PRAGMA(HLS stream depth=COMPLETED_JOBS_QUEUE_DEPTH variable=completed_job_queue)
+    DO_PRAGMA(HLS stream depth=JOBS_TO_SCHEDULE_QUEUE_DEPTH variable=jobs_in_progress); // Force only one job allowed at a time    
 
     static bool job_info_valid = false;
     static JOB_COMPLETION_PACKET job_info;

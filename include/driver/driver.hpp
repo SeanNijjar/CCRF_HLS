@@ -4,7 +4,7 @@
 #include <vector>
 #include <map>
 
-typedef unsigned int JOB_ID_T;
+
 
 
 
