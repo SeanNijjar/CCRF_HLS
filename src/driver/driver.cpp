@@ -12,10 +12,13 @@ JobDispatcher::JobDispatcher(E_DISPATCH_MODE _dispatch_mode) :
     ASSERT(_dispatch_mode == DISPATCH_MODE_EXCLUSIVE_BLOCKING, "Created job dispatched in non-exclusive mode. Only DISPATCH_MODE_EXCLUSIVE is currently supported");
 }
 
-JOB_ID_T JobDispatcher::DispatchJob(const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor) 
+JOB_ID_T JobDispatcher::DispatchJob(const JobDescriptor *const job_descriptor) 
 {
     UNIMPLEMENTED();
     const JOB_ID_T job_ID = next_available_job_ID++;
+
+    // TODO: Consolidate the job here...
+
     if (dispatch_mode == DISPATCH_MODE_EXCLUSIVE_BLOCKING) {
 
     } else if (dispatch_mode == DISPATCH_MODE_EXCLUSIVE) {
@@ -46,7 +49,7 @@ void JobDispatcher::WaitForJobsToFinish()
     }
 }
 
-void JobDispatcher::TransferJobToRemote(const JOB_ID_T job_ID, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor) 
+void JobDispatcher::TransferJobToRemote(const JOB_ID_T job_ID, const JobDescriptor *const job_descriptor) 
 {
     UNIMPLEMENTED();
     JobDispatcher::E_JOB_STATUS job_status = JOB_STATUS_COPYING_TO_REMOTE;
@@ -80,12 +83,12 @@ void JobDispatcher::SignalDoneDmaToRemoteForLdrImage(const JOB_ID_T job_ID, cons
     UNIMPLEMENTED_QUIET("Function SignalDoneDmaToRemoteForLdrImage currently doesn't do anything...");
 }
 
-void JobDispatcher::DispatchJobExclusive(const JOB_ID_T job_ID, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor) 
+void JobDispatcher::DispatchJobExclusive(const JOB_ID_T job_ID, const JobDescriptor *const job_descriptor) 
 {
     UNIMPLEMENTED();
 }
 
-void JobDispatcher::DispatchJobASAP(const JOB_ID_T job_ID, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor) 
+void JobDispatcher::DispatchJobASAP(const JOB_ID_T job_ID, const JobDescriptor *const job_descriptor) 
 {
     UNIMPLEMENTED();
     /*

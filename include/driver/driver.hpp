@@ -24,7 +24,7 @@ class RemoteHostDescriptor
 class JobPackager
 {
     // Assumes byte_buffer is entirely in locally addressable memory
-    void CopyJobToBuffer(BYTE_T *byte_buffer, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor) {
+    void CopyJobToBuffer(BYTE_T *byte_buffer, const JobDescriptor *const job_descriptor) {
 
     }
 
@@ -80,23 +80,23 @@ class JobDispatcher
      *  push the job to the waiting jobs queue. The job will *actually* be dispatched
      *  to the remote processor when the resources are available
      **/
-    JOB_ID_T DispatchJob(const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor);
+    JOB_ID_T DispatchJob(const JobDescriptor *const job_descriptor);
 
     auto GetTotalJobExecutionTime(const JOB_ID_T) const;
 
     void WaitForJobsToFinish();
 
   private:
-    void TransferJobToRemote(const JOB_ID_T job_ID, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor);
+    void TransferJobToRemote(const JOB_ID_T job_ID, const JobDescriptor *const job_descriptor);
 
     void SignalDoneDmaToRemoteForLdrImage(const JOB_ID_T job_ID, const int ldr_image_num) const;
 
-    void DispatchJobExclusive(const JOB_ID_T job_ID, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor);
+    void DispatchJobExclusive(const JOB_ID_T job_ID, const JobDescriptor *const job_descriptor);
 
-    void DispatchJobASAP(const JOB_ID_T job_ID, const JobDescriptor::JOB_DESCRIPTOR_T *const job_descriptor);
+    void DispatchJobASAP(const JOB_ID_T job_ID, const JobDescriptor *const job_descriptor);
 
   private:
-    std::map<JOB_ID_T, JobDescriptor::JOB_DESCRIPTOR_T*> job_descriptor_map;
+    std::map<JOB_ID_T, JobDescriptor*> job_descriptor_map;
 
     // These are the jobs currently being processed on the remote processor
     std::vector<JOB_ID_T> active_job_queue;

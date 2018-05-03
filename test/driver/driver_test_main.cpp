@@ -25,7 +25,7 @@ int main(int argc, char *argv[])
     // Create job descriptions for each LDR image set to HDR image
     // Note though that these jobs are not consolidated (meaning all)
     // of the input and output images are not necessarily in contiguous memory
-    std::vector<JobDescriptor::JOB_DESCRIPTOR_T*> job_descriptors;
+    std::vector<JobDescriptor*> job_descriptors;
     for(auto image_stack : image_stacks) {
         // TODO: Change the Create routine to be CreateConsolidated
         //       which will only emit job descriptors with job data
