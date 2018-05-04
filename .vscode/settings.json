@@ -38,6 +38,7 @@
         "cwchar": "cpp",
         "cwctype": "cpp",
         "*.ipp": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "set": "cpp"
     }
 }

@@ -3,10 +3,13 @@
 #include <chrono>
 #include <vector>
 #include <map>
+#include <thread>
 
+#include <hls_stream.h>
+#include <unordered_set>
+#include <queue>
 
-
-
+class JobPackage;
 
 class RemoteHostDescriptor
 {
@@ -41,6 +44,7 @@ class JobDispatcher
 {
 
   public:
+
     enum E_DISPATCH_MODE
     {
         DISPATCH_MODE_FIRST = 0,
@@ -73,20 +77,33 @@ class JobDispatcher
     };
 
     JobDispatcher(E_DISPATCH_MODE _dispatch_mode);
+    ~JobDispatcher();
+    
 
+    auto GetTotalJobExecutionTime(const JOB_ID_T) const;
+
+    /* Halts execution of the caller thread until the job queue is empty*/
+    void WaitForJobsToFinish();
+
+    void StartDispatcher();
+    void StopDispatcher();
+
+
+    void SynchronizeWait();
+    void DispatchJobAsync(const JobDescriptor *const job_descriptor);
     /** This function will attempt to dispatch the job to the remote HDR processor.
      *  However, if the remote HDR processor is unable to currently accept this job
      *  (i.e. it doesn't have enough resources to manage it) then this function will
      *  push the job to the waiting jobs queue. The job will *actually* be dispatched
      *  to the remote processor when the resources are available
      **/
-    JOB_ID_T DispatchJob(const JobDescriptor *const job_descriptor);
-
-    auto GetTotalJobExecutionTime(const JOB_ID_T) const;
-
-    void WaitForJobsToFinish();
+    void DispatchJob(const JobDescriptor *const job_descriptor);
 
   private:
+    bool TryDispatchJob();
+
+    void MainDispatcherThreadLoop();
+
     void TransferJobToRemote(const JOB_ID_T job_ID, const JobDescriptor *const job_descriptor);
 
     void SignalDoneDmaToRemoteForLdrImage(const JOB_ID_T job_ID, const int ldr_image_num) const;
@@ -95,7 +112,21 @@ class JobDispatcher
 
     void DispatchJobASAP(const JOB_ID_T job_ID, const JobDescriptor *const job_descriptor);
 
+    JOB_ID_T GenerateNewJobID();
+
   private:
+    std::unordered_set<JOB_ID_T> active_jobs;
+    std::queue<JobPackage> pending_jobs;
+    std::queue<JobPackage> executing_jobs;
+
+    hls::stream<JobDescriptor> incoming_job_queue;
+    hls::stream<JobPackage> outgoing_job_queue;
+    hls::stream<JOB_STATUS_MESSAGE> incoming_job_status_queue;
+    hls::stream<JOB_COMPLETION_PACKET> outgoing_finished_job_queue;
+    
+    bool accelerator_full;
+    bool dispatch_request_in_flight;
+
     std::map<JOB_ID_T, JobDescriptor*> job_descriptor_map;
 
     // These are the jobs currently being processed on the remote processor
@@ -109,6 +140,10 @@ class JobDispatcher
     E_DISPATCH_MODE dispatch_mode;
 
     RemoteHostDescriptor remote_host_descriptor;
+
+    std::thread driver_thread;
+
+    
 };
 
 

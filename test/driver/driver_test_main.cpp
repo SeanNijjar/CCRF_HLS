@@ -45,8 +45,8 @@ int main(int argc, char *argv[])
     JobDispatcher job_dispatcher(JobDispatcher::DISPATCH_MODE_EXCLUSIVE);
     std::vector<JOB_ID_T> job_IDs;
     for (auto consolidated_job_buffer : consolidated_job_buffers) {
-        JOB_ID_T job_ID = job_dispatcher.DispatchJob(JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer));
-        job_IDs.push_back(job_ID);
+        /* JOB_ID_T job_ID =*/ job_dispatcher.DispatchJobAsync(JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer));
+        //job_IDs.push_back(job_ID);
     }
     
     // TODO: Figure out how to get back the outputs/results. We should be able to dump the results 
@@ -54,7 +54,14 @@ int main(int argc, char *argv[])
     //       Internally, there needs to be a mapping between user output buffer and the memory mapped
     //       output buffer
 
-    job_dispatcher.WaitForJobsToFinish();
+    job_dispatcher.SynchronizeWait();
+
+    for (auto consolidated_job_buffer : consolidated_job_buffers) {
+        JobDescriptor *processed_image_job_descriptor = JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer);
+        IMAGE_T image_to_write_to_file(processed_image_job_descriptor->OUTPUT_IMAGE_LOCATION, processed_image_job_descriptor->IMAGE_WIDTH, processed_image_job_descriptor->IMAGE_HEIGHT);
+        WriteImageToFile(image_to_write_to_file, std::string image_file_path)
+    }
+    
     // Check Result
     /*
     for (auto result : results) {

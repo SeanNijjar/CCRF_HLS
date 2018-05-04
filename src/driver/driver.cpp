@@ -4,30 +4,145 @@
 #include "global_options.hpp"
 #include "job_descriptor.hpp"
 #include "job_package.hpp"
+#include <thread>
+#include <iostream>
 
 JobDispatcher::JobDispatcher(E_DISPATCH_MODE _dispatch_mode) :
     next_available_job_ID(0),
-    dispatch_mode(_dispatch_mode)
+    dispatch_mode(_dispatch_mode),
+    accelerator_full(false),
+    dispatch_request_in_flight(false)
 {
     ASSERT(_dispatch_mode == DISPATCH_MODE_EXCLUSIVE_BLOCKING, "Created job dispatched in non-exclusive mode. Only DISPATCH_MODE_EXCLUSIVE is currently supported");
 }
 
-JOB_ID_T JobDispatcher::DispatchJob(const JobDescriptor *const job_descriptor) 
+JobDispatcher::~JobDispatcher()
 {
-    UNIMPLEMENTED();
-    const JOB_ID_T job_ID = next_available_job_ID++;
+    WaitForJobsToFinish();
+    try {
+        StopDispatcher();
+    } catch (...) {
+        std::cerr << "FAILED to properly stop JobDispatcher main thread" << std::endl;
+    }
+}
 
-    // TODO: Consolidate the job here...
+JOB_ID_T JobDispatcher::GenerateNewJobID()
+{
+    JOB_ID_T new_job_ID;
+    for (new_job_ID = 1; active_jobs.count(new_job_ID) > 0; new_job_ID++);
+    return new_job_ID;
+}
 
-    if (dispatch_mode == DISPATCH_MODE_EXCLUSIVE_BLOCKING) {
-
-    } else if (dispatch_mode == DISPATCH_MODE_EXCLUSIVE) {
-        DispatchJobExclusive(job_ID, job_descriptor);
-    } else {
-        UNIMPLEMENTED();
+/** RETURNS: did_something
+ */
+bool JobDispatcher::TryDispatchJob() 
+{
+    // For now, always send the job dispatch request.
+    // In future, retain state in the dispatcher to track whether or
+    // not the FPGA is already full and we are waiting for completion
+    // before submitting more work.
+    if (pending_jobs.size()) {
+        if (!accelerator_full && !dispatch_request_in_flight) {
+            outgoing_job_queue.write(pending_jobs.front());
+            dispatch_request_in_flight = true;
+            return true;
+        }
     }
 
-    return job_ID;
+    return false;
+}
+
+void JobDispatcher::MainDispatcherThreadLoop()
+{
+    bool did_something_this_iteration = false;
+
+    do {
+        did_something_this_iteration = false;
+
+        if (!incoming_job_queue.empty()) {
+            // Process the job and dispatch it
+
+            JobPackage new_job_package;
+            new_job_package.job_descriptor = incoming_job_queue.read();
+            new_job_package.job_ID = GenerateNewJobID();
+            //
+            pending_jobs.push(new_job_package);
+
+            did_something_this_iteration = true;
+        }
+
+        did_something_this_iteration = did_something_this_iteration || TryDispatchJob();
+
+        if (!incoming_job_status_queue.empty()) {
+            // Remove the job from the set of active jobs
+            JOB_STATUS_MESSAGE job_status = incoming_job_status_queue.read();
+
+            switch (job_status.packet_message_type) {
+                case JOB_STATUS_MESSAGE::JOB_ACCEPT_PACKET: {
+                    ASSERT(job_status.job_ID == pending_jobs.front().job_ID, "received accept message for job that isn't at head of queue");
+                    executing_jobs.push(pending_jobs.front());
+                    pending_jobs.pop();
+                    dispatch_request_in_flight = false;
+                    ASSERT(accelerator_full == false, "WEIRD: got a job accept when accelerator already full - doesn't make sense");
+                } break;
+
+                case JOB_STATUS_MESSAGE::JOB_REJECT_PACKET: {
+                    dispatch_request_in_flight = false;
+                    accelerator_full = true;
+                } break;
+
+                case JOB_STATUS_MESSAGE::JOB_DONE_PACKET: {
+                    if (accelerator_full) 
+                        ASSERT(dispatch_request_in_flight == false, "Got job completion package from full accelerator but showing job in flight - doesn't make sense")
+
+                    ASSERT(executing_jobs.front().job_ID == job_status.job_ID, "Got out of order job completion - currently unexpected in the design");
+                    executing_jobs.pop();
+                    JOB_COMPLETION_PACKET job_completion_packet(job_status.job_ID, nullptr, -1);
+                    outgoing_finished_job_queue.write(job_completion_packet);
+
+                    accelerator_full = false;
+                    
+                } break;
+            };
+
+            did_something_this_iteration = true;
+        }
+
+        did_something_this_iteration = did_something_this_iteration || TryDispatchJob();
+
+        if (!did_something_this_iteration) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+
+    } while (true);
+}
+
+void JobDispatcher::StartDispatcher()
+{
+    driver_thread = std::thread(&JobDispatcher::MainDispatcherThreadLoop, this);
+}
+
+void JobDispatcher::StopDispatcher()
+{
+    driver_thread.join();
+}
+
+void JobDispatcher::SynchronizeWait()
+{
+    while (active_jobs.size() > 0) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+}
+
+void JobDispatcher::DispatchJobAsync(const JobDescriptor *const job_descriptor) 
+{
+    incoming_job_queue.write(*job_descriptor);
+}
+
+void JobDispatcher::DispatchJob(const JobDescriptor *const job_descriptor) 
+{
+    DispatchJobAsync(job_descriptor);
+    SynchronizeWait();
 }
 
 

@@ -57,11 +57,12 @@ struct JOB_STATUS_MESSAGE
 };
 
 struct JOB_COMPLETION_PACKET {
+    JOB_ID_T job_ID;
     const PIXEL_T *const output_address;
     const int image_size;
 
-    JOB_COMPLETION_PACKET(const PIXEL_T *const _output_address, const int _image_size) :
-        output_address(_output_address), image_size(_image_size)
+    JOB_COMPLETION_PACKET(JOB_ID_T _job_ID, const PIXEL_T *const _output_address, const int _image_size) :
+        job_ID(_job_ID), output_address(_output_address), image_size(_image_size)
     {}
 };
 
