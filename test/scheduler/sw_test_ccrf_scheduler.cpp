@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
     // Otherwise, or target use case is 5 LDR images/HDR image
     const int ldr_img_count = (argc == 2) ? atoi(argv[1]) : 5;
 
-    hls::stream<JobDescriptor::JOB_DESCRIPTOR_T> input_job_descriptor_queue;
+    hls::stream<JobDescriptor> input_job_descriptor_queue;
     hls::stream<JOB_COMPLETION_PACKET> jobs_in_progress_queue;
     hls::stream<JOB_SUBTASK> output_subtask_queue;
 
@@ -51,7 +51,7 @@ int main(int argc, char *argv[]) {
     }
 
     // this might bite me in the butt
-    JobDescriptor::JOB_DESCRIPTOR_T *job_descr = JobDescriptor::Create(ldr_images);
+    JobDescriptor *job_descr = JobDescriptor::Create(ldr_images);
     input_job_descriptor_queue.write(*job_descr); // This will free the pointer? (maybe it does move under the hood)
     //delete job_descr;
     bool threaded = false;
@@ -60,7 +60,7 @@ int main(int argc, char *argv[]) {
         //ccrf_scheduler_thread.detach();
         //std::this_thread::sleep_for (std::chrono::seconds(1));
     } else {
-        CcrfScheduler<false>(input_job_descriptor_queue, output_subtask_queue, jobs_in_progress_queue);
+        CcrfSubtaskScheduler<false>(input_job_descriptor_queue, output_subtask_queue, jobs_in_progress_queue);
     }
 
     

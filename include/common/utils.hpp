@@ -2,14 +2,9 @@
 #define UTILS_H
 
 #include "types.hpp"
-
-// for the .cpp
-#include <opencv2/core/core.hpp>
-#include <opencv2/highgui/highgui.hpp>
-#include <iostream>
-#include <fstream>
-#include <vector>
 #include <string>
+#include <vector>
+
 
 std::vector<std::string> ReadFileContents(std::string file_path);
 

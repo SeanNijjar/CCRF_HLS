@@ -10,8 +10,6 @@ typedef struct PIXEL_STRUCT {
     BYTE_T g;
     BYTE_T b;
     BYTE_T r;
-    PIXEL_STRUCT() : r(0), g(0), b(0)
-    {}
 } PIXEL_T;
 
 typedef struct IMAGE_STRUCT {
@@ -58,12 +56,8 @@ struct JOB_STATUS_MESSAGE
 
 struct JOB_COMPLETION_PACKET {
     JOB_ID_T job_ID;
-    const PIXEL_T *const output_address;
-    const int image_size;
-
-    JOB_COMPLETION_PACKET(JOB_ID_T _job_ID, const PIXEL_T *const _output_address, const int _image_size) :
-        job_ID(_job_ID), output_address(_output_address), image_size(_image_size)
-    {}
+    PIXEL_T * output_address;
+    int image_size;
 };
 
 #endif

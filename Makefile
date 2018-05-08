@@ -8,6 +8,7 @@ BUILDTESTDIR := build_test/
 COMPONENTS := application ccrf common common/job_descriptor driver scheduler
 TEST_COMPONENTS := test
 
+#OPENCV_LIB := /usr/local/lib/opencv2/
 SRC_DIRS := $(addprefix src/,$(COMPONENTS))
 TEST_DIRS := $(addprefix test/,$(COMPONENTS))
 INC_DIRS := $(addprefix include/,$(COMPONENTS))
@@ -43,6 +44,26 @@ $(BUILD_TEST_DIRS):
 checkdirs: $(BUILD_DIRS) $(BUILD_TEST_DIRS)
 
 all: checkdirs $(OBJS) 
+
+driver_test_main:
+	g++ -std=c++14 -Iinclude/ \
+	-Iinclude/ccrf \
+	-Iinclude/scheduler/ \
+	-Iinclude/common \
+	-Iinclude/common/job_descriptor/ \
+	-Iinclude/driver/ \
+	-I/home/opt/Xilinx/Vivado_HLS/2017.2/include/ \
+	src/scheduler/ccrf_scheduler.cpp \
+	src/common/job_descriptor/job_descriptor.cpp \
+	src/common/helper.cpp \
+	src/common/utils.cpp \
+	src/driver/job_dispatcher.cpp \
+	src/driver/software_driver.cpp \
+	src/driver/driver.cpp \
+	src/ccrf/ccrf.cpp \
+	test/driver/driver_test_main.cpp \
+	-lopencv_highgui -lopencv_imgcodecs -lopencv_core -lpthread \
+	-o driver_test_main  -g \
 
 #ccrf_scheduler_test: all $(TEST_OBJS)
 ccrf_scheduler_test: 

@@ -12,9 +12,15 @@ struct JobDescriptor
 {
     
     int LDR_IMAGE_COUNT;   // Number of LDR images that correspond to the single output HDR frame
-    int IMAGE_SIZE;   // The number of pixels per LDR/HDR image (= to width * height)
+    int IMAGE_WIDTH;
+    int IMAGE_HEIGHT;
     PIXEL_T *OUTPUT_IMAGE_LOCATION;   // Where to dump the HDR image
     PIXEL_T *INPUT_IMAGES[10];   // The memory locations of the input images // Harcode to 10 max for now to make transmission in FPGA easier
+
+    int IMAGE_SIZE() const
+    {
+        return IMAGE_WIDTH * IMAGE_HEIGHT;
+    }
 
     static JobDescriptor *Create(IMAGE_STACK_T image_stack)
     {
@@ -24,13 +30,14 @@ struct JobDescriptor
         const int height = image_stack[0].height;
         const int width = image_stack[0].width;
 
-        JobDescriptor *job_descriptor = InterpretRawBufferAsJobDescriptor(
-                                                new BYTE_T[JobDescriptor::BytesNeededForJobDescriptor(num_images)]
-                                              );
-        job_descriptor->IMAGE_SIZE = height * width;
+        JobDescriptor *job_descriptor = new JobDescriptor();//InterpretRawBufferAsJobDescriptor(
+                                                //new BYTE_T[JobDescriptor::BytesNeededForJobDescriptor(num_images)]
+                                              //);
+        job_descriptor->IMAGE_WIDTH = width;
+        job_descriptor->IMAGE_HEIGHT = height;
         job_descriptor->LDR_IMAGE_COUNT = num_images;
-        int i = 0;
-        for (auto image : image_stack) {
+        for (int i = 0; i < num_images; i++) {//auto image : image_stack) {
+            auto &image = image_stack[i];
             ASSERT(image.width == width, "Image width dimensions for image " << i << " in stack don't match image 0 width");
             ASSERT(image.height == height, "Image width dimensions for image " << i << " in stack don't match image 0 width");
             job_descriptor->INPUT_IMAGES[i] = image.data;
@@ -40,7 +47,8 @@ struct JobDescriptor
     }
 
     static const int BytesNeededForEntireJob(const JobDescriptor *const job_descriptor) {
-        return BytesNeededForJobDescriptor(job_descriptor) + job_descriptor->IMAGE_SIZE * job_descriptor->LDR_IMAGE_COUNT;
+        const int image_size = job_descriptor->IMAGE_SIZE();
+        return BytesNeededForJobDescriptor(job_descriptor) + (image_size * sizeof(PIXEL_T) * job_descriptor->LDR_IMAGE_COUNT);
     }
 
     static const int BytesNeededForJobDescriptor(const JobDescriptor *const job_descriptor) {
@@ -52,9 +60,9 @@ struct JobDescriptor
         return offsetof(JobDescriptor, INPUT_IMAGES) + sizeof(PIXEL_T*) * num_images;
     }
 
-    static void SetImageSize(JobDescriptor *const job_descriptor_impl, const int image_size) {
-        job_descriptor_impl->IMAGE_SIZE = image_size;
-    }
+    //static void SetImageSize(JobDescriptor *const job_descriptor_impl, const int image_size) {
+    //    job_descriptor_impl->IMAGE_SIZE = image_size;
+    //}
 
     static void SetImageCount(JobDescriptor *const job_descriptor_impl, const int image_count) {
         job_descriptor_impl->LDR_IMAGE_COUNT = image_count;
@@ -67,7 +75,7 @@ struct JobDescriptor
     static void CopyToRawBuffer(BYTE_T *raw_buffer, const JobDescriptor *const job_descriptor_impl) {
         ASSERT(raw_buffer != nullptr, "raw_buffer is a nullptr");
         ASSERT(job_descriptor_impl->LDR_IMAGE_COUNT > 0, "Bad job descriptor copy. LDR_IMAGE_COUNT not initialized")
-        ASSERT(job_descriptor_impl->IMAGE_SIZE > 0, "Bad job descriptor copy. IMAGE_SIZE not initialized")
+        ASSERT(job_descriptor_impl->IMAGE_SIZE() > 0, "Bad job descriptor copy. IMAGE_SIZE not initialized")
         ASSERT(job_descriptor_impl->OUTPUT_IMAGE_LOCATION != nullptr, "Bad job descriptor copy. OUTPUT_IMAGE_LOCATION not initialized")
         for (int image = 0; image < job_descriptor_impl->LDR_IMAGE_COUNT; image++) {
             ASSERT(job_descriptor_impl->INPUT_IMAGES[image] != nullptr, "Bad job descriptor copy. One of the input image addresses was not assigned")
@@ -77,7 +85,7 @@ struct JobDescriptor
     }
 
     static JobDescriptor *InterpretRawBufferAsJobDescriptor(BYTE_T *raw_buffer) {
-        ASSERT((unsigned long)raw_buffer % sizeof(JobDescriptor) == 0, "misaligned raw buffer trying to be interpreted as JobDescriptor");
+        ASSERT((unsigned long)raw_buffer % alignof(JobDescriptor) == 0, "misaligned raw buffer trying to be interpreted as JobDescriptor");
         ASSERT(raw_buffer != nullptr, "raw_buffer is a nullptr");
 
         return (JobDescriptor*)raw_buffer;
@@ -90,7 +98,7 @@ struct JobDescriptor
 
     static const int ImageSize(const JobDescriptor *const job_descriptor_impl) {
         ASSERT(job_descriptor_impl != nullptr, "job_descriptor_impl == nullptr");
-        return job_descriptor_impl->IMAGE_SIZE;
+        return job_descriptor_impl->IMAGE_SIZE();
     }
 
     static const PIXEL_T *OutputImageLocation(const JobDescriptor *const job_descriptor_impl) {

@@ -22,6 +22,25 @@
                     "ignoreFailures": true
                 }
             ]
+        },
+        {
+            "name": "(gdb) sw driver main top",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/driver_test_main",
+            "args": ["/home/sean/Documents/GradSchool/ECE1373/Project/TestDataSets/", "image_stack_listing_files.txt"],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
         }
     ]
 }

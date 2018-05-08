@@ -1,10 +1,11 @@
 #include "helper.hpp"
 #include <type_traits>
 
+
 template <class T>
 const T ROUND_TO_NEXT_POWER_OF_2(const T value) 
 {
-    ASSERT(std::is_unsigned<T>, "Only unsigned types are supported by ROUND_TO_NEXT_POWER_OF_2")
+    static_assert(std::is_unsigned<T>::value, "Only unsigned types are supported by ROUND_TO_NEXT_POWER_OF_2");
     value--;
     value |= value >> 1;
     value |= value >> 2;

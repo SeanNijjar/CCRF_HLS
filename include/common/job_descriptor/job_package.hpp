@@ -1,4 +1,8 @@
+#ifndef JOB_PACKAGE_H
+#define JOB_PACKAGE_H
+
 #include "job_descriptor.hpp"
+#include <iostream>
 
 struct JobPackage
 {
@@ -28,23 +32,33 @@ struct JobPackage
 
     static void ConsolidateJob(BYTE_T *consolidated_job_buffer, const JobDescriptor *const job_descriptor) {
         const int num_images = JobDescriptor::NumberOfLDRImages(job_descriptor);
-        memcpy(consolidated_job_buffer, job_descriptor, JobDescriptor::BytesNeededForJobDescriptor(num_images));
-        JobDescriptor *copied_job_descriptor = JobDescriptor::InterpretRawBufferAsJobDescriptor((BYTE_T*)job_descriptor);
+        const int bytes_needed_for_job_descriptor = JobDescriptor::BytesNeededForJobDescriptor(num_images);
+        memcpy(consolidated_job_buffer, job_descriptor, bytes_needed_for_job_descriptor);
+        JobDescriptor *copied_job_descriptor = JobDescriptor::InterpretRawBufferAsJobDescriptor((BYTE_T*)consolidated_job_buffer);
 
         const int image_size = JobDescriptor::ImageSize(job_descriptor);
         int current_byte_offset = /*(BYTE_T*)copied_job_descriptor + */ JobDescriptor::BytesNeededForJobDescriptor(num_images);
 
-        copied_job_descriptor->OUTPUT_IMAGE_LOCATION = (PIXEL_T*)((BYTE_T*)job_descriptor + current_byte_offset);
+        copied_job_descriptor->OUTPUT_IMAGE_LOCATION = (PIXEL_T*)((BYTE_T*)copied_job_descriptor + current_byte_offset);
         static_assert(sizeof(unsigned long) >= sizeof(JobDescriptor::OUTPUT_IMAGE_LOCATION), "unsigned long not big enough to store output location pointer");
-        ASSERT(((unsigned long)copied_job_descriptor->OUTPUT_IMAGE_LOCATION % sizeof(PIXEL_T)) == 0, "Misaligned consolidated image data");
+        //ASSERT(((unsigned long)copied_job_descriptor->OUTPUT_IMAGE_LOCATION % sizeof(PIXEL_T)) == 0, "Misaligned consolidated image data");
         current_byte_offset += image_size * sizeof(PIXEL_T);
 
         for (int i = 0; i < num_images; i++) {
-            copied_job_descriptor->INPUT_IMAGES[i] = (PIXEL_T*)((BYTE_T*)job_descriptor + current_byte_offset);
-            ASSERT(((unsigned long)copied_job_descriptor->INPUT_IMAGES[i] % sizeof(PIXEL_T)) == 0, "Misaligned consolidated image data");
-            memcpy(copied_job_descriptor->INPUT_IMAGES[i], job_descriptor->INPUT_IMAGES[i], image_size * sizeof(PIXEL_T));
+            copied_job_descriptor->INPUT_IMAGES[i] = (PIXEL_T*)((BYTE_T*)copied_job_descriptor + current_byte_offset);
+            ASSERT(((unsigned long)copied_job_descriptor->INPUT_IMAGES[i] % alignof(job_descriptor)) == 0, "Misaligned consolidated image data");
+            //for (unsigned long byte = 0; byte < image_size * sizeof(PIXEL_T); byte++) {
+            //    BYTE_T *dest = (BYTE_T*)copied_job_descriptor->INPUT_IMAGES[i] + byte;
+            //    BYTE_T *src = (BYTE_T*)job_descriptor->INPUT_IMAGES[i] + byte;
+            //    *dest = *src;
+            //}
+            ((BYTE_T*)copied_job_descriptor->INPUT_IMAGES[i])[0] = ((BYTE_T*)job_descriptor->INPUT_IMAGES[i])[0];
+            ((BYTE_T*)copied_job_descriptor->INPUT_IMAGES[i])[image_size * sizeof(PIXEL_T) - 1] = ((BYTE_T*)job_descriptor->INPUT_IMAGES[i])[image_size * sizeof(PIXEL_T) - 1];
+            memcpy((BYTE_T*)(copied_job_descriptor->INPUT_IMAGES[i]), (BYTE_T*)(job_descriptor->INPUT_IMAGES[i]), image_size * sizeof(PIXEL_T));
             current_byte_offset += image_size * sizeof(PIXEL_T);
         }
         
     }
 };
+
+#endif

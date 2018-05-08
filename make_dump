@@ -1,0 +1,47 @@
+g++ -std=c++14 -Iinclude/ \
+-Iinclude/ccrf \
+-Iinclude/scheduler/ \
+-Iinclude/common \
+-Iinclude/common/job_descriptor/ \
+-Iinclude/driver/ \
+-I/home/opt/Xilinx/Vivado_HLS/2017.2/include/ \
+-L/usr/local/lib \
+-lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_photo -lopencv_aruco -lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_cvv \
+-lopencv_dpm -lopencv_face -lopencv_freetype -lopencv_fuzzy -lopencv_hdf -lopencv_img_hash -lopencv_line_descriptor -lopencv_optflow -lopencv_reg \
+-lopencv_rgbd -lopencv_saliency -lopencv_stereo -lopencv_structured_light -lopencv_phase_unwrapping -lopencv_surface_matching -lopencv_tracking \
+-lopencv_datasets -lopencv_text -lopencv_dnn -lopencv_plot -lopencv_xfeatures2d -lopencv_shape -lopencv_video -lopencv_ml -lopencv_ximgproc -lopencv_calib3d \
+-lopencv_features2d -lopencv_highgui -lopencv_videoio -lopencv_flann -lopencv_xobjdetect -lopencv_imgcodecs -lopencv_objdetect -lopencv_xphoto -lopencv_imgproc \
+-lopencv_core -ldl -lm -lpthread -lrt -lGLU -lGL -ltbb \
+src/scheduler/ccrf_scheduler.cpp \
+src/common/job_descriptor/job_descriptor.cpp \
+src/common/helper.cpp \
+src/common/utils.cpp \
+src/driver/job_dispatcher.cpp \
+src/driver/software_driver.cpp \
+src/driver/driver.cpp \
+src/ccrf/ccrf.cpp \
+test/driver/driver_test_main.cpp \
+-L/usr/local/lib \
+-lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_photo -lopencv_aruco -lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_cvv \
+-lopencv_dpm -lopencv_face -lopencv_freetype -lopencv_fuzzy -lopencv_hdf -lopencv_img_hash -lopencv_line_descriptor -lopencv_optflow -lopencv_reg \
+-lopencv_rgbd -lopencv_saliency -lopencv_stereo -lopencv_structured_light -lopencv_phase_unwrapping -lopencv_surface_matching -lopencv_tracking \
+-lopencv_datasets -lopencv_text -lopencv_dnn -lopencv_plot -lopencv_xfeatures2d -lopencv_shape -lopencv_video -lopencv_ml -lopencv_ximgproc -lopencv_calib3d \
+-lopencv_features2d -lopencv_highgui -lopencv_videoio -lopencv_flann -lopencv_xobjdetect -lopencv_imgcodecs -lopencv_objdetect -lopencv_xphoto -lopencv_imgproc \
+-lopencv_core -ldl -lm -lpthread -lrt -lGLU -lGL -ltbb \
+-o driver_test_main  -g \
+-L/usr/local/lib \
+-lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_photo -lopencv_aruco -lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_cvv \
+-lopencv_dpm -lopencv_face -lopencv_freetype -lopencv_fuzzy -lopencv_hdf -lopencv_img_hash -lopencv_line_descriptor -lopencv_optflow -lopencv_reg \
+-lopencv_rgbd -lopencv_saliency -lopencv_stereo -lopencv_structured_light -lopencv_phase_unwrapping -lopencv_surface_matching -lopencv_tracking \
+-lopencv_datasets -lopencv_text -lopencv_dnn -lopencv_plot -lopencv_xfeatures2d -lopencv_shape -lopencv_video -lopencv_ml -lopencv_ximgproc -lopencv_calib3d \
+-lopencv_features2d -lopencv_highgui -lopencv_videoio -lopencv_flann -lopencv_xobjdetect -lopencv_imgcodecs -lopencv_objdetect -lopencv_xphoto -lopencv_imgproc \
+-lopencv_core -ldl -lm -lpthread -lrt -lGLU -lGL -ltbb \
+
+/tmp/ccEzq8gB.o: In function `WriteImageToFile(IMAGE_STRUCT, std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)':
+/home/sean/Documents/GradSchool/ECE1373/Project/CCRF_HLS/src/common/utils.cpp:46: undefined reference to `cv::_InputArray::_InputArray(cv::Mat const&)'
+/home/sean/Documents/GradSchool/ECE1373/Project/CCRF_HLS/src/common/utils.cpp:46: undefined reference to `cv::imwrite(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, cv::_InputArray const&, std::vector<int, std::allocator<int> > const&)'
+/tmp/ccEzq8gB.o: In function `ReadImageFile(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> >)':
+/home/sean/Documents/GradSchool/ECE1373/Project/CCRF_HLS/src/common/utils.cpp:57: undefined reference to `cv::imread(std::__cxx11::basic_string<char, std::char_traits<char>, std::allocator<char> > const&, int)'
+collect2: error: ld returned 1 exit status
+Makefile:49: recipe for target 'driver_test_main' failed
+make: *** [driver_test_main] Error 1
