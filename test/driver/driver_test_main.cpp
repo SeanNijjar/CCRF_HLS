@@ -45,7 +45,9 @@ int main(int argc, char *argv[])
     // of the input and output images are not necessarily in contiguous memory
     std::vector<JobDescriptor*> job_descriptors;
     for (auto img_stack_iter = image_stacks.begin(); img_stack_iter != image_stacks.end(); img_stack_iter++) {
-        job_descriptors.push_back(JobDescriptor::Create(*img_stack_iter));
+        JobDescriptor *new_job_descriptor = JobDescriptor::Create(*img_stack_iter);
+
+        job_descriptors.push_back(new_job_descriptor);
     }
 
     // Now we have to consolidate our job data so it is in a contiguous buffer
@@ -53,7 +55,11 @@ int main(int argc, char *argv[])
     std::vector<BYTE_T*> consolidated_job_buffers;
     for (auto job_desc_iter = job_descriptors.begin(); job_desc_iter != job_descriptors.end(); job_desc_iter++) {
         //job_descriptor : job_descriptors) 
-        
+        for (int i = 0; i < (*job_desc_iter)->LDR_IMAGE_COUNT; i++) {
+            std::string input_string = "y";
+            input_string.append(std::to_string(i));
+            strcpy((char*)(*job_desc_iter)->INPUT_IMAGES[i], input_string.c_str());
+        }
         unsigned long bytes_needed_for_entire_job = JobDescriptor::BytesNeededForEntireJob(*job_desc_iter);
         BYTE_T *consolidated_job_buffer = (BYTE_T*)new BYTE_T*[bytes_needed_for_entire_job + 32];
         JobPackage::ConsolidateJob(consolidated_job_buffer, *job_desc_iter);

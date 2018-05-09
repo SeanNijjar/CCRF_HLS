@@ -72,7 +72,7 @@ class SoftwareTestDriver : public Driver
     // CCRF Engine Queues
     //hls::stream<JobPackage> incoming_job_request_queue; // 1  incoming_job_request_queue
     //hls::stream<JOB_STATUS_MESSAGE> job_status_response_queue; // 2 outgoing_job_response_queue
-    hls::stream<JobDescriptor> jobs_to_schedule_queue; // 3
+    hls::stream<JobPackage> jobs_to_schedule_queue; // 3
     hls::stream<JOB_SUBTASK> scheduler_to_dispatcher_subtask_queue; // 4
     hls::stream<JOB_COMPLETION_PACKET> jobs_in_progress_queue; // 5
     hls::stream<JOB_COMPLETION_PACKET> completed_job_from_completion_module_queue; // 6

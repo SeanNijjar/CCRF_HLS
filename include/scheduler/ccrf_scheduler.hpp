@@ -23,7 +23,7 @@ extern PIXEL_T *CCRF_SCRATCHPAD_START_ADDR;
 template <bool hw_implement>
 void CcrfSchedulerTopLevel(hls::stream<JobPackage> *incoming_job_requests, 
                            hls::stream<JOB_STATUS_MESSAGE> *response_message_queue,
-                           hls::stream<JobDescriptor> *jobs_to_schedule_queue,
+                           hls::stream<JobPackage> *jobs_to_schedule_queue,
                            hls::stream<JOB_COMPLETION_PACKET> *completed_jobs_queue)
 {
     DO_PRAGMA(HLS stream depth=RESPONSE_QUEUE_DEPTH variable=response_message_queue)
@@ -48,7 +48,7 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> *incoming_job_requests,
             response_packet.job_ID = job_request.job_ID;
             response_message_queue->write(response_packet);
             if (!jobs_to_schedule_queue->full()) {
-                jobs_to_schedule_queue->write(job_request.job_descriptor);
+                jobs_to_schedule_queue->write(job_request);
             }
         }
     } while (hw_implement);
@@ -76,19 +76,19 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> *completed_job_queue,
         }
 
         while (job_info_valid) {
-            if (!completed_job_queue->full()) {
+            if (completed_job_queue->full()) {
                 continue;
             }
 
             bool job_completed = false;
             for (int i = 0; !job_completed && i < CCRF_COMPUTE_UNIT_COUNT; i++) {
                 //if (CCRF_completed_outputs[i]->empty()) {
-                if (ccrf_compute_units[i].output_subtask_queue.empty()) {
+                if (!ccrf_compute_units[i].running || ccrf_compute_units[i].output_subtask_queue.empty()) {
                     continue;
                 }
 
                 //const PIXEL_T *const output_addr = CCRF_completed_outputs[i]->read();
-                const PIXEL_T *const output_addr = ccrf_compute_units[i].output_subtask_queue.read();
+                PIXEL_T * output_addr = ccrf_compute_units[i].output_subtask_queue.read();
                 job_completed = (output_addr == job_info.output_address);
                 if (job_completed) {
                     completed_job_queue->write(job_info);
@@ -102,7 +102,7 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> *completed_job_queue,
 }
 
 template <bool hw_implement>
-void CcrfSubtaskScheduler(hls::stream<JobDescriptor> *input_jobs, 
+void CcrfSubtaskScheduler(hls::stream<JobPackage> *input_jobs, 
                           hls::stream<JOB_SUBTASK> *subtask_queue, 
                           hls::stream<JOB_COMPLETION_PACKET> *jobs_in_progress) 
 {
@@ -115,10 +115,13 @@ void CcrfSubtaskScheduler(hls::stream<JobDescriptor> *input_jobs,
 
     bool current_job_valid = false;
     static JobDescriptor current_job;
+    static JOB_ID_T current_job_ID;
 
     do {
         if (!current_job_valid && !input_jobs->empty()) {
-            current_job = input_jobs->read();
+            JobPackage current_job_package = input_jobs->read();
+            current_job = current_job_package.job_descriptor;
+            current_job_ID = current_job_package.job_ID;
             current_job_valid = true;
         }
 
@@ -140,15 +143,15 @@ void CcrfSubtaskScheduler(hls::stream<JobDescriptor> *input_jobs,
             }
 
             while(jobs_in_progress->full());
-            JOB_COMPLETION_PACKET job_completion_packet = {0, current_job.OUTPUT_IMAGE_LOCATION, current_job.IMAGE_SIZE()};
+            JOB_COMPLETION_PACKET job_completion_packet = {current_job_ID, current_job.OUTPUT_IMAGE_LOCATION, current_job.IMAGE_SIZE()};
             jobs_in_progress->write(job_completion_packet);
-            for (int layer = 0; layer < ldr_image_count; layer++) {
+            for (int layer = 0; layer < ldr_image_count - 1; layer++) {
                 const int num_outputs = ldr_image_count - layer - 1;
                 for (int input = 0; input < ldr_image_count - layer - 1; input++) {
 
                     while(subtask_queue->full()); 
 
-                    const bool last_task = (layer == ldr_image_count - 1);
+                    const bool last_task = (num_outputs == 1);
                     // The final output should go to the actual specified output location, not the scratchpad
                     PIXEL_T *output_addr = (last_task) ? current_job.OUTPUT_IMAGE_LOCATION : output_addresses[input];
                     JOB_SUBTASK new_subtask;
@@ -188,7 +191,9 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
     for (int i = 0; i < dependency_count; i++) {
         const PIXEL_T *task_dependence = dependencies[i];
         for (int ccrf_unit = 0; ccrf_unit < CCRF_COMPUTE_UNIT_COUNT; ccrf_unit++) {    
-            if (ccrf_compute_units[ccrf_unit].GetTaskDependence(i) == task_dependence) {
+            if (ccrf_compute_units[ccrf_unit].GetTaskDependence(i) == task_dependence && 
+                ccrf_compute_units[ccrf_unit].running && 
+                !ccrf_compute_units[ccrf_unit].is_idle()) {
                 return true;
             }
         }
@@ -217,6 +222,12 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> *dispatcher_stream_in,
             if (!dependence_is_processing && available_ccrf_unit >= 0) {
                 ccrf_compute_units[available_ccrf_unit].input_subtask_queue.write(task_to_add);
                 task_to_add_pending = false;
+            } else {
+                if (dependence_is_processing) {
+                    //std::cout << "Waitiing to add task because a dependent task is being completed" << std::endl;
+                } else {
+                    //std::cout << "Waitiing to add task because no CCRF units remain" << std::endl;
+                }
             }
         }
     }

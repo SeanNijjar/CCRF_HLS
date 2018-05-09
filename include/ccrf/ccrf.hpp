@@ -53,6 +53,7 @@ class SoftwareDummyCCRF
 {
   public:
 
+
     const bool is_idle() 
     {
         return (!is_processing && input_subtask_queue.size() == 0);
@@ -82,11 +83,13 @@ class SoftwareDummyCCRF
     void Initialize() 
     {
         ccrf_thread = std::thread(&SoftwareDummyCCRF::run, this);
+        running = true;
     }
 
     void run() 
     {
         is_processing = false;
+        running = true;
         while (1) {
             if (!input_subtask_queue.empty()) {
                 ASSERT(!is_processing, "Tried to start a new job on an already busy CCRF unit");
@@ -100,13 +103,18 @@ class SoftwareDummyCCRF
                 task_output.append(") ");
                 std::cout << "CCRF TASK OUTPUT: " << task_output << std::endl;
                 strcpy((char *)ccrf_task_details.output, task_output.c_str());
+                output_subtask_queue.write(ccrf_task_details.output);
+                while (!output_subtask_queue.empty());// spin until the results have been read back
+                ccrf_task_details.input1 = nullptr;
+                ccrf_task_details.input2 = nullptr;
+                ccrf_task_details.output = nullptr;
                 is_processing = false;
             }
         }
     }
 
-
-    bool is_processing;
+    bool running = false;
+    bool is_processing = true;
 
     hls::stream<JOB_SUBTASK> input_subtask_queue;
     hls::stream<PIXEL_T*> output_subtask_queue;
