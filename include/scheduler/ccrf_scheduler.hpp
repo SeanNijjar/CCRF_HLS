@@ -190,11 +190,25 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
     dependencies[2] = task_to_check.output;
     for (int i = 0; i < dependency_count; i++) {
         const PIXEL_T *task_dependence = dependencies[i];
-        for (int ccrf_unit = 0; ccrf_unit < CCRF_COMPUTE_UNIT_COUNT; ccrf_unit++) {    
-            if (ccrf_compute_units[ccrf_unit].GetTaskDependence(i) == task_dependence && 
-                ccrf_compute_units[ccrf_unit].running && 
-                !ccrf_compute_units[ccrf_unit].is_idle()) {
-                return true;
+        for (int ccrf_unit = 0; ccrf_unit < CCRF_COMPUTE_UNIT_COUNT; ccrf_unit++) {
+            if (!ccrf_compute_units[ccrf_unit].running || ccrf_compute_units[ccrf_unit].is_idle()) {
+                // neither of these two cases can possibly contribute to a dependence match
+                continue;
+            }
+            if (i == 2) {
+                // For inputs, check for dependence against outputs, so we wait for the result
+                // to be available
+                if (ccrf_compute_units[ccrf_unit].GetTaskDependence(0) == task_dependence ||
+                    ccrf_compute_units[ccrf_unit].GetTaskDependence(1) == task_dependence) {
+                    return true;
+                }
+            } else {
+                // for outputs, make sure current inputs don't wait for this location.
+                // so as not to overwrite a current location that is used as input for
+                // another subtask
+                if (ccrf_compute_units[ccrf_unit].GetTaskDependence(2) == task_dependence) {
+                    return true;
+                }
             }
         }
     }
@@ -218,16 +232,17 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> *dispatcher_stream_in,
 
         if (task_to_add_pending) {
             bool dependence_is_processing = DoesTaskWaitForDependencies(task_to_add, ccrf_compute_units);
+            if (dependence_is_processing) {
+                continue;
+            }
             int available_ccrf_unit = GetAvailableCCRFUnit(ccrf_compute_units);
-            if (!dependence_is_processing && available_ccrf_unit >= 0) {
+            if (available_ccrf_unit >= 0) {
                 ccrf_compute_units[available_ccrf_unit].input_subtask_queue.write(task_to_add);
                 task_to_add_pending = false;
-            } else {
-                if (dependence_is_processing) {
-                    //std::cout << "Waitiing to add task because a dependent task is being completed" << std::endl;
-                } else {
-                    //std::cout << "Waitiing to add task because no CCRF units remain" << std::endl;
-                }
+                task_to_add.input1 = nullptr;
+                task_to_add.input2 = nullptr;
+                task_to_add.output = nullptr;
+                task_to_add.image_size = 0;
             }
         }
     }

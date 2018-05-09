@@ -5,11 +5,12 @@
 #include "job_package.hpp"
 #include "types.hpp"
 #include "ccrf.hpp"
+#include "ccrf_scheduler.hpp"
 
 #include <hls_stream.h>
 #include <thread>
 
-const int default_ccrf_unit_count = 5;
+const int default_ccrf_unit_count = CCRF_COMPUTE_UNIT_COUNT;
 
 class SoftwareTestDriver : public Driver
 {
@@ -76,11 +77,11 @@ class SoftwareTestDriver : public Driver
     hls::stream<JOB_SUBTASK> scheduler_to_dispatcher_subtask_queue; // 4
     hls::stream<JOB_COMPLETION_PACKET> jobs_in_progress_queue; // 5
     hls::stream<JOB_COMPLETION_PACKET> completed_job_from_completion_module_queue; // 6
-    hls::stream<JOB_SUBTASK> *ccrf_input_queues[default_ccrf_unit_count];
-    hls::stream<PIXEL_T*> *ccrf_output_queues[default_ccrf_unit_count]; // 7 +
+    hls::stream<JOB_SUBTASK> *ccrf_input_queues[CCRF_COMPUTE_UNIT_COUNT];
+    hls::stream<PIXEL_T*> *ccrf_output_queues[CCRF_COMPUTE_UNIT_COUNT]; // 7 +
 
     //std::vector<SoftwareDummyCCRF> ccrf_compute_units;
-    SoftwareDummyCCRF ccrf_compute_units[default_ccrf_unit_count];
+    SoftwareDummyCCRF ccrf_compute_units[CCRF_COMPUTE_UNIT_COUNT];
 
 
     bool already_started;

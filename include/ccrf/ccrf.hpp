@@ -56,7 +56,7 @@ class SoftwareDummyCCRF
 
     const bool is_idle() 
     {
-        return (!is_processing && input_subtask_queue.size() == 0);
+        return (!is_processing && input_subtask_queue.empty() && output_subtask_queue.empty());
     }
 
     const PIXEL_T *const GetTaskDependence(const int i) const
@@ -97,13 +97,25 @@ class SoftwareDummyCCRF
                 is_processing = true;
                 ccrf_task_details = input_subtask_queue.read();
                 std::string task_output(" (");
+                int strlen_i1 = std::string((char*)ccrf_task_details.input1).length();
+                int strlen_i2 = std::string((char*)ccrf_task_details.input2).length();
+                std::string error1_string = "Got 0 length string as input1 to software test CCRF: \"";
+                error1_string.append((char*)ccrf_task_details.input1).append("\"").append(std::to_string((uint64_t)ccrf_task_details.input1));
+                std::string error2_string = "Got 0 length string as input2 to software test CCRF: \"";
+                error2_string.append((char*)ccrf_task_details.input2).append("\"").append(std::to_string((uint64_t)ccrf_task_details.input2));
+                ASSERT(strlen_i1 > 1, error1_string.c_str());
+                ASSERT(strlen_i2 > 1, error2_string.c_str());
                 task_output.append(std::string((const char*)ccrf_task_details.input1));
                 task_output.append("+");
                 task_output.append(std::string((const char*)ccrf_task_details.input2));
                 task_output.append(") ");
-                std::string print_me = "CCRF TASK_OUTPUT: ";
+                std::string print_me = "{input1=";
+                print_me += std::to_string((uint64_t)ccrf_task_details.input1) + ", input2=" + std::to_string((uint64_t)ccrf_task_details.input2) + ", output=" + std::to_string((uint64_t)ccrf_task_details.output);
                 print_me.append(task_output);
+
                 std::cout << print_me << std::endl;
+                //std::this_thread::sleep_for(std::chrono::milliseconds(200));
+
                 strcpy((char *)ccrf_task_details.output, task_output.c_str());
                 output_subtask_queue.write(ccrf_task_details.output);
                 while (!output_subtask_queue.empty());// spin until the results have been read back
@@ -115,8 +127,8 @@ class SoftwareDummyCCRF
         }
     }
 
-    bool running = false;
-    bool is_processing = true;
+    volatile bool running = false;
+    volatile bool is_processing = true;
 
     hls::stream<JOB_SUBTASK> input_subtask_queue;
     hls::stream<PIXEL_T*> output_subtask_queue;
