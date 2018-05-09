@@ -101,7 +101,9 @@ class SoftwareDummyCCRF
                 task_output.append("+");
                 task_output.append(std::string((const char*)ccrf_task_details.input2));
                 task_output.append(") ");
-                std::cout << "CCRF TASK OUTPUT: " << task_output << std::endl;
+                std::string print_me = "CCRF TASK_OUTPUT: ";
+                print_me.append(task_output);
+                std::cout << print_me << std::endl;
                 strcpy((char *)ccrf_task_details.output, task_output.c_str());
                 output_subtask_queue.write(ccrf_task_details.output);
                 while (!output_subtask_queue.empty());// spin until the results have been read back
