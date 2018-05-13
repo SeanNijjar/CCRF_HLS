@@ -5,6 +5,7 @@
 #include "job_package.hpp"
 #include "types.hpp"
 #include "ccrf.hpp"
+#include "software_test_ccrf.hpp"
 #include "ccrf_scheduler.hpp"
 
 #include <hls_stream.h>

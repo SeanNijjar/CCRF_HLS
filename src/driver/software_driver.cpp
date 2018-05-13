@@ -3,6 +3,7 @@
 #include "helper.hpp"
 #include "types.hpp"
 #include "ccrf.hpp"
+#include "software_test_ccrf.hpp"
 
 #include <iostream>
 void SoftwareTestDriver::SendJobLaunchRequest(JobPackage job_request)
@@ -13,10 +14,10 @@ void SoftwareTestDriver::SendJobLaunchRequest(JobPackage job_request)
 }
 
 template <typename T>
-void dummy_function(T *num) {
-    while(!num->empty()) {
+void dummy_function(T &num) {
+    while(!num.empty()) {
         std::cout << "not_empty" << std::endl;
-        num->read();
+        num.read();
     }
      std::cout << "done dummy_function" << std::endl;
     // for (; *num >= 0; (*num)--) {
@@ -28,30 +29,30 @@ void SoftwareTestDriver::Start()
 {
     int x = 5;
     //ccrf_top_level_scheduler_thread = std::thread(dummy_function<hls::stream<JobPackage>>,
-    //                                              &incoming_job_request_queue);
+    //                                              std::ref(incoming_job_request_queue));
     
     
-    ccrf_top_level_scheduler_thread = std::thread(CcrfSchedulerTopLevel<true>, 
-                                                  &incoming_job_request_queue, 
-                                                  &outgoing_job_response_queue,
-                                                  &jobs_to_schedule_queue,
-                                                  &completed_job_from_completion_module_queue);
+    ccrf_top_level_scheduler_thread = std::thread(CcrfSchedulerTopLevel, 
+                                                   std::ref(incoming_job_request_queue), 
+                                                   std::ref(outgoing_job_response_queue),
+                                                   std::ref(jobs_to_schedule_queue),
+                                                   std::ref(completed_job_from_completion_module_queue));
     
     
-    ccrf_task_scheduler_thread = std::thread(CcrfSubtaskScheduler<true>, 
-                                                &jobs_to_schedule_queue, 
-                                                &scheduler_to_dispatcher_subtask_queue, 
-                                                &jobs_in_progress_queue);
+     ccrf_task_scheduler_thread = std::thread(CcrfSubtaskScheduler, 
+                                                 std::ref(jobs_to_schedule_queue), 
+                                                 std::ref(scheduler_to_dispatcher_subtask_queue), 
+                                                 std::ref(jobs_in_progress_queue));
     
     
-    ccrf_dispatcher_thread = std::thread(CcrfSubtaskDispatcher<true, SoftwareDummyCCRF>, 
-                                            &scheduler_to_dispatcher_subtask_queue, 
+    ccrf_dispatcher_thread = std::thread(CcrfSubtaskDispatcher<SoftwareDummyCCRF>, 
+                                            std::ref(scheduler_to_dispatcher_subtask_queue), 
                                             ccrf_compute_units);
     
     
-    job_result_notifier_thread = std::thread(JobResultNotifier<true>,
-                                             &completed_job_from_completion_module_queue, 
-                                             &jobs_in_progress_queue, 
+    job_result_notifier_thread = std::thread(JobResultNotifier<SoftwareDummyCCRF>,
+                                             std::ref(completed_job_from_completion_module_queue), 
+                                             std::ref(jobs_in_progress_queue), 
                                              ccrf_compute_units);
     
     

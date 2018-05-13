@@ -27,7 +27,7 @@ struct JobPackage
                 (num_images * JobDescriptor::ImageSize(job_descriptor) + 
                 (unsigned long)job_descriptor + JobDescriptor::BytesNeededForJobDescriptor(num_images)),
                 "JobPackage not consolidated in memory");
-        return job_descriptor->INPUT_IMAGES[image_num];
+        return (PIXEL_T*)job_descriptor->INPUT_IMAGES[image_num];
     }
 
     static void ConsolidateJob(BYTE_T *consolidated_job_buffer, const JobDescriptor *const job_descriptor) {
@@ -39,13 +39,13 @@ struct JobPackage
         const int image_size = JobDescriptor::ImageSize(job_descriptor);
         int current_byte_offset = /*(BYTE_T*)copied_job_descriptor + */ JobDescriptor::BytesNeededForJobDescriptor(num_images);
 
-        copied_job_descriptor->OUTPUT_IMAGE_LOCATION = (PIXEL_T*)((BYTE_T*)copied_job_descriptor + current_byte_offset);
+        copied_job_descriptor->OUTPUT_IMAGE_LOCATION = (uintptr_t)((BYTE_T*)copied_job_descriptor + current_byte_offset);
         static_assert(sizeof(unsigned long) >= sizeof(JobDescriptor::OUTPUT_IMAGE_LOCATION), "unsigned long not big enough to store output location pointer");
         //ASSERT(((unsigned long)copied_job_descriptor->OUTPUT_IMAGE_LOCATION % sizeof(PIXEL_T)) == 0, "Misaligned consolidated image data");
         current_byte_offset += image_size * sizeof(PIXEL_T);
 
         for (int i = 0; i < num_images; i++) {
-            copied_job_descriptor->INPUT_IMAGES[i] = (PIXEL_T*)((BYTE_T*)copied_job_descriptor + current_byte_offset);
+            copied_job_descriptor->INPUT_IMAGES[i] = (uintptr_t)((BYTE_T*)copied_job_descriptor + current_byte_offset);
             ASSERT(((unsigned long)copied_job_descriptor->INPUT_IMAGES[i] % alignof(job_descriptor)) == 0, "Misaligned consolidated image data");
             //for (unsigned long byte = 0; byte < image_size * sizeof(PIXEL_T); byte++) {
             //    BYTE_T *dest = (BYTE_T*)copied_job_descriptor->INPUT_IMAGES[i] + byte;

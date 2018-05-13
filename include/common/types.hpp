@@ -1,16 +1,22 @@
 #ifndef TYPES_H
 #define TYPES_H
+#include <cstdint>
 #include <vector>
 
 typedef unsigned int JOB_ID_T;
 
 typedef unsigned char BYTE_T;
 
+typedef BYTE_T PIXEL_T[3];
+
+/*
 typedef struct PIXEL_STRUCT {
-    BYTE_T g;
-    BYTE_T b;
-    BYTE_T r;
+    BYTE_T data[3];
+    //BYTE_T g;
+    //BYTE_T b;
+    //BYTE_T r;
 } PIXEL_T;
+*/
 
 typedef struct IMAGE_STRUCT {
     PIXEL_T *data;
@@ -27,16 +33,19 @@ typedef struct IMAGE_STRUCT {
 typedef std::vector<IMAGE_T> IMAGE_STACK_T;
 
 struct JOB_SUBTASK {
-    PIXEL_T *input1;
-    PIXEL_T *input2;
-    PIXEL_T *output;
+    uintptr_t input1;
+    uintptr_t input2;
+    uintptr_t output;
+    // PIXEL_T *input1;
+    // PIXEL_T *input2;
+    // PIXEL_T *output;
     int image_size;
 
     void Initialize(PIXEL_T * _input1, PIXEL_T * _input2, PIXEL_T *_output, int _image_size)
     {
-        input1 = _input1;
-        input2 = _input2;
-        output = _output;
+        input1 = (uintptr_t)_input1;
+        input2 = (uintptr_t)_input2;
+        output = (uintptr_t)_output;
         image_size = _image_size;
     }
 

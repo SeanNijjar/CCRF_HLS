@@ -79,7 +79,7 @@ int main(int argc, char *argv[])
     int i = 0;
     for (auto consolidated_job_buffer : consolidated_job_buffers) {
         JobDescriptor *processed_image_job_descriptor = JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer);
-        IMAGE_T image_to_write_to_file(processed_image_job_descriptor->OUTPUT_IMAGE_LOCATION, processed_image_job_descriptor->IMAGE_WIDTH, processed_image_job_descriptor->IMAGE_HEIGHT);
+        IMAGE_T image_to_write_to_file((PIXEL_T*)processed_image_job_descriptor->OUTPUT_IMAGE_LOCATION, processed_image_job_descriptor->IMAGE_WIDTH, processed_image_job_descriptor->IMAGE_HEIGHT);
         WriteImageToFile(image_to_write_to_file, std::string("HDR_OUTPUT_").append(std::to_string(i)).append(".png"));
         i++;
     }
