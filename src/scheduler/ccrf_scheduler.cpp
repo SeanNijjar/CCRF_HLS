@@ -309,12 +309,10 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
     dependencies[0] = task_to_check.input1;
     dependencies[1] = task_to_check.input2;
     dependencies[2] = task_to_check.output;
+    
     #pragma HLS UNROLL
-    for (int i = 0; i < dependency_count; i++) {
-        const PIXEL_T *const task_dependence = (PIXEL_T*)dependencies[i];
-        #pragma HLS UNROLL
-        for (int ccrf_unit = 0; ccrf_unit < CCRF_COMPUTE_UNIT_COUNT; ccrf_unit++) {
-            bool queue_busy = CcrfQueuesBusy<JOB_SUBTASK>(ccrf_unit, 
+    for (int ccrf_unit = 0; ccrf_unit < CCRF_COMPUTE_UNIT_COUNT; ccrf_unit++) {
+        bool queue_busy = CcrfQueuesBusy<JOB_SUBTASK>(ccrf_unit, 
             #ifdef HW_COMPILE
                 subtask_to_ccrf_queue_1, subtask_to_ccrf_queue_2, subtask_to_ccrf_queue_3,
                 subtask_to_ccrf_queue_4, subtask_to_ccrf_queue_5, subtask_to_ccrf_queue_6
@@ -322,10 +320,16 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
                 subtask_to_ccrf_queues
             #endif
             );
-            if (!ccrf_status_signals[ccrf_unit].running || queue_busy || ccrf_status_signals[ccrf_unit].is_processing) { //ccrf_status_signals[ccrf_unit].is_idle()) {
-                // neither of these two cases can possibly contribute to a dependence match
-                //continue;
-            } else if (i == 2) {
+        bool is_idle = !(ccrf_status_signals[ccrf_unit].running);
+        is_idle = is_idle || (!queue_busy && !(ccrf_status_signals[ccrf_unit].is_processing));
+        if (is_idle) { //ccrf_status_signals[ccrf_unit].is_idle()) {
+            // since the unit is idle, it can't be processing dependencies for the task
+            continue;
+        }
+        #pragma HLS UNROLL
+        for (int i = 0; i < dependency_count; i++) {
+            const PIXEL_T *const task_dependence = (PIXEL_T*)dependencies[i];
+            if (i == 2) {
                 // For inputs, check for dependence against outputs, so we wait for the result
                 // to be available
                 if ((uintptr_t)ccrf_status_signals[ccrf_unit].task_dep_ptr1 == (uintptr_t)task_dependence ||
