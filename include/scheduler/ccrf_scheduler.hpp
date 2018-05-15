@@ -19,6 +19,7 @@ static_assert(RESPONSE_QUEUE_DEPTH >= COMPLETED_JOBS_QUEUE_DEPTH, "RESPONSE_QUEU
 const int JOBS_TO_SCHEDULE_QUEUE_DEPTH = 16;
 // TODO: Ideally this can be passed to the FPGA
 extern PIXEL_T *CCRF_SCRATCHPAD_START_ADDR;
+extern PIXEL_T *CCRF_SCRATCHPAD_END_ADDR;
 
 template <typename STREAM_CLASS>
 bool CcrfQueuesBusy(int queue_id, 
@@ -37,12 +38,21 @@ bool CcrfQueuesBusy(int queue_id,
     bool queue_busy = true;
     #ifdef HW_COMPILE
     switch (queue_id) {
+        #ifdef CSIM
+        case 0: queue_busy = subtask_to_ccrf_queue_1.size() == 1; break;
+        case 1: queue_busy = subtask_to_ccrf_queue_2.size() == 1; break;
+        case 2: queue_busy = subtask_to_ccrf_queue_3.size() == 1; break;
+        case 3: queue_busy = subtask_to_ccrf_queue_4.size() == 1; break;
+        case 4: queue_busy = subtask_to_ccrf_queue_5.size() == 1; break;
+        case 5: queue_busy = subtask_to_ccrf_queue_6.size() == 1; break;
+        #else
         case 0: queue_busy = subtask_to_ccrf_queue_1.full(); break;
         case 1: queue_busy = subtask_to_ccrf_queue_2.full(); break;
         case 2: queue_busy = subtask_to_ccrf_queue_3.full(); break;
         case 3: queue_busy = subtask_to_ccrf_queue_4.full(); break;
         case 4: queue_busy = subtask_to_ccrf_queue_5.full(); break;
         case 5: queue_busy = subtask_to_ccrf_queue_6.full(); break;
+        #endif
         default: assert(false); queue_busy = true; break;
     };
     #else 

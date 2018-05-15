@@ -39,6 +39,7 @@
         "cwctype": "cpp",
         "*.ipp": "cpp",
         "iostream": "cpp",
-        "set": "cpp"
+        "set": "cpp",
+        "string": "cpp"
     }
 }

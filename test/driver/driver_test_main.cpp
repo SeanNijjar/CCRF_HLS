@@ -21,7 +21,9 @@ int main(int argc, char *argv[])
     std::string root_dir = argv[1];
     std::string file_with_file_lists_path = argv[2];
 
-    CCRF_SCRATCHPAD_START_ADDR = new PIXEL_T[100000000];
+    const int scratchpad_pixel_count = 100000000;
+    CCRF_SCRATCHPAD_START_ADDR = new PIXEL_T[scratchpad_pixel_count];
+    CCRF_SCRATCHPAD_END_ADDR = CCRF_SCRATCHPAD_START_ADDR + scratchpad_pixel_count;
 
     // Read in the test image sets
     const char *starting_pwd = get_current_dir_name();

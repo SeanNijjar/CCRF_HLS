@@ -6,7 +6,7 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
 {
     #pragma HLS STREAM variable=input_subtask_queue depth=1
     #pragma HLS STREAM variable=output_subtask_queue depth=1
-    static JOB_SUBTASK ccrf_task_details;
+    JOB_SUBTASK ccrf_task_details;
     ccrf_task_details.input1 = (uintptr_t)nullptr;
     ccrf_task_details.input2 = (uintptr_t)nullptr;
     ccrf_task_details.input2 = (uintptr_t)nullptr;

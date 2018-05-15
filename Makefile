@@ -7,7 +7,7 @@ BUILDTESTDIR := build_test/
 
 HW_COMPILE_FLAGS := ""
 ifeq ($(HW_COMPILE),1)
-HW_COMPILE_FLAGS := -DHW_COMPILE
+HW_COMPILE_FLAGS := -DHW_COMPILE -DCSIM
 endif
 
 COMPONENTS := application ccrf common common/job_descriptor driver scheduler

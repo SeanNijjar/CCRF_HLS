@@ -1,12 +1,14 @@
 #include "software_test_ccrf.hpp"
 
-#include <cstring>
+#include "types.hpp"
 
+#include <cstring>
+#include <string>
 void Run_SoftwareDummyCCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals, 
             hls::stream<JOB_SUBTASK> &input_subtask_queue, 
             hls::stream<uintptr_t> &output_subtask_queue) 
 {
-    static JOB_SUBTASK ccrf_task_details;
+    JOB_SUBTASK ccrf_task_details;
     ccrf_task_details.input1 = (uintptr_t)nullptr;
     ccrf_task_details.input2 = (uintptr_t)nullptr;
     ccrf_task_details.output = (uintptr_t)nullptr;
@@ -22,6 +24,21 @@ void Run_SoftwareDummyCCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
             status_signals.task_dep_ptr2 = ccrf_task_details.input2;
             status_signals.task_dep_ptr3 = ccrf_task_details.output;
 
+            ASSERT(((char*)ccrf_task_details.input1) != nullptr, "BAD CCRF SUBTASK");
+            ASSERT(((char*)ccrf_task_details.input2) != nullptr, "BAD CCRF SUBTASK");
+            ASSERT(((char*)ccrf_task_details.output) != nullptr, "BAD CCRF SUBTASK");
+
+            PIXEL_T *output_image = (PIXEL_T*)ccrf_task_details.output;
+            PIXEL_T *input1_image = (PIXEL_T*)ccrf_task_details.input1;
+            PIXEL_T *input2_image = (PIXEL_T*)ccrf_task_details.input2;
+
+            for (int i = 0; i < ccrf_task_details.image_size; i++) {
+                (output_image[i])[0] = (input1_image[i])[0] + (input2_image[i])[0];
+                (output_image[i])[1] = (input1_image[i])[1] + (input2_image[i])[1];
+                (output_image[i])[2] = (input1_image[i])[2] + (input2_image[i])[2];
+            }
+
+            /*            
             std::string task_output(" (");
             int strlen_i1 = std::string((char*)ccrf_task_details.input1).length();
             int strlen_i2 = std::string((char*)ccrf_task_details.input2).length();
@@ -40,8 +57,14 @@ void Run_SoftwareDummyCCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
             print_me.append(task_output);
             std::cout << print_me << std::endl;
             //std::this_thread::sleep_for(std::chrono::milliseconds(200));
-            strcpy((char *)ccrf_task_details.output, task_output.c_str());
+            std::cout << ((char*)ccrf_task_details.output)[0] << " ";
+            std::cout << ((char*)ccrf_task_details.output)[task_output.length()] << std::endl;
+            std::cout << task_output << std::endl;
+            memcpy((char *)ccrf_task_details.output, task_output.c_str(), task_output.length() + 1);
+            //strcpy((char *)ccrf_task_details.output, task_output.c_str());
 
+            //std::this_thread::sleep_for(std::chrono::seconds(1000));
+            */
 
             output_subtask_queue.write(ccrf_task_details.output); 
             while (!output_subtask_queue.empty());// spin until the results have been read back

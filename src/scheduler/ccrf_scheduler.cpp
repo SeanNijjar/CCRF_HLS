@@ -9,6 +9,8 @@ using namespace hls;
 
 
 PIXEL_T *CCRF_SCRATCHPAD_START_ADDR = (PIXEL_T*)(0x10000000);
+PIXEL_T *CCRF_SCRATCHPAD_END_ADDR = (PIXEL_T*)(0x20000000);
+
 
 
 void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests, 
@@ -87,13 +89,13 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
     DO_PRAGMA(HLS stream depth=INPUT_JOB_STREAM_DEPTH variable=input_jobs)
     DO_PRAGMA(HLS stream depth=1 variable=jobs_in_progress); // Force only one job allowed at a time
     
-    //JOB_DESCRIPTOR_T[CCRF_COMPUTE_UNIT_COUNT] active_job_descriptors;
     const int max_active_jobs = CCRF_COMPUTE_UNIT_COUNT;
 
     bool current_job_valid = false;
     static JobDescriptor current_job;
     static JOB_ID_T current_job_ID;
 
+    PIXEL_T *output_addr = CCRF_SCRATCHPAD_START_ADDR;
     do {
         if (!current_job_valid && !input_jobs.empty()) {
             JobPackage current_job_package = input_jobs.read();
@@ -113,10 +115,13 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
                 input_addresses[input] = (PIXEL_T*)current_job.INPUT_IMAGES[input];
             }
 
-            PIXEL_T *output_addr = CCRF_SCRATCHPAD_START_ADDR;
             for (int output = 0; output < ldr_image_count - 1; output++) {
-                output_addresses[output] = output_addr + image_size;
-                output_addr += image_size;
+                output_addresses[output] = output_addr;
+                if (output_addr + image_size > CCRF_SCRATCHPAD_END_ADDR) {
+                    output_addr = CCRF_SCRATCHPAD_START_ADDR;
+                } else {
+                    output_addr += image_size;
+                }
             }
 
             while(jobs_in_progress.full());
@@ -435,6 +440,9 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
                     default: assert(false); subtask_to_ccrf_queue_1.write(task_to_add); break;
                 };
                 #else 
+                ASSERT(task_to_add.input1 != NULL, "Tried to push task with null input1");
+                ASSERT(task_to_add.input2 != NULL, "Tried to push task with null input2");
+                ASSERT(task_to_add.output != NULL, "Tried to push task with null output");
                 subtask_to_ccrf_queues[available_ccrf_unit].write(task_to_add);
                 #endif
 
