@@ -92,8 +92,9 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
     const int max_active_jobs = CCRF_COMPUTE_UNIT_COUNT;
 
     bool current_job_valid = false;
-    static JobDescriptor current_job;
-    static JOB_ID_T current_job_ID;
+    JobDescriptor current_job;
+    JOB_ID_T current_job_ID;
+    
 
     PIXEL_T *output_addr = CCRF_SCRATCHPAD_START_ADDR;
     do {
@@ -116,12 +117,11 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
             }
 
             for (int output = 0; output < ldr_image_count - 1; output++) {
-                output_addresses[output] = output_addr;
-                if (output_addr + image_size > CCRF_SCRATCHPAD_END_ADDR) {
+                if (&output_addr[image_size] >= CCRF_SCRATCHPAD_END_ADDR) {
                     output_addr = CCRF_SCRATCHPAD_START_ADDR;
-                } else {
-                    output_addr += image_size;
                 }
+                output_addresses[output] = output_addr;
+                output_addr += image_size;
             }
 
             while(jobs_in_progress.full());
@@ -129,21 +129,25 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
             jobs_in_progress.write(job_completion_packet);
             for (int layer = 0; layer < ldr_image_count - 1; layer++) {
                 const int num_outputs = ldr_image_count - layer - 1;
+                const bool last_task = (num_outputs == 1);
                 for (int input = 0; input < ldr_image_count - layer - 1; input++) {
 
                     while(subtask_queue.full()); 
 
-                    const bool last_task = (num_outputs == 1);
                     // The final output should go to the actual specified output location, not the scratchpad
-                    PIXEL_T *output_addr = (last_task) ? (PIXEL_T*)current_job.OUTPUT_IMAGE_LOCATION : output_addresses[input];
+                    PIXEL_T *real_output_addr = (last_task) ? (PIXEL_T*)current_job.OUTPUT_IMAGE_LOCATION : output_addresses[input];
                     JOB_SUBTASK new_subtask;
                     new_subtask.input1 = (uintptr_t)input_addresses[input];
                     new_subtask.input2 = (uintptr_t)input_addresses[input + 1];
-                    new_subtask.output = (uintptr_t)output_addr;
+                    new_subtask.output = (uintptr_t)real_output_addr;
+                    ASSERT(&real_output_addr[image_size] < CCRF_SCRATCHPAD_END_ADDR, "Out of range output");
                     new_subtask.image_size = image_size;
+                    new_subtask.job_ID = current_job_ID;
                     subtask_queue.write(new_subtask);
                 }
-                std::swap(input_addresses, output_addresses);
+                if (!last_task) {
+                    std::swap(input_addresses, output_addresses);
+                }
             }
 
             current_job_valid = false;
@@ -331,15 +335,25 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
             // since the unit is idle, it can't be processing dependencies for the task
             continue;
         }
+
+        /* In the case where job IDs do not match (i.e. we are trying to schedule some subtasks of the)
+         * next job while the tail of the current job is finishing), then we need to check every input and output
+         * of the task_to_check against every input and output from the ccrf status signals, because 
+         * there is no relationship between inputs of one job and the outputs of another (or vice versa).
+         * We only have a relationship between the inputs and outputs of subtasks of the same job
+         **/
+        bool job_IDs_match = (task_to_check.job_ID == ccrf_status_signals[ccrf_unit].associated_job);
         // Past here indicates the 1
         #pragma HLS UNROLL
         for (int i = 0; i < dependency_count; i++) {
             const PIXEL_T *const task_dependence = (PIXEL_T*)dependencies[i];
+            bool matches_dep1 = (uintptr_t)ccrf_status_signals[ccrf_unit].task_dep_ptr1 == (uintptr_t)task_dependence;
+            bool matches_dep2 = (uintptr_t)ccrf_status_signals[ccrf_unit].task_dep_ptr2 == (uintptr_t)task_dependence;
+            bool matches_dep3 = (uintptr_t)ccrf_status_signals[ccrf_unit].task_dep_ptr3 == (uintptr_t)task_dependence;
             if (i == 2) {
                 // For inputs, check for dependence against outputs, so we wait for the result
                 // to be available
-                if ((uintptr_t)ccrf_status_signals[ccrf_unit].task_dep_ptr1 == (uintptr_t)task_dependence ||
-                    (uintptr_t)ccrf_status_signals[ccrf_unit].task_dep_ptr2 == (uintptr_t)task_dependence) {
+                if (matches_dep1 || matches_dep2 || (!job_IDs_match && matches_dep3)) {
                     #ifdef HW_COMPILE
                     has_dependence = true || has_dependence;
                     #else
@@ -350,7 +364,7 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
                 // for outputs, make sure current inputs don't wait for this location.
                 // so as not to overwrite a current location that is used as input for
                 // another subtask
-                if ((uintptr_t)ccrf_status_signals[ccrf_unit].task_dep_ptr3 == (uintptr_t)task_dependence) {
+                if (matches_dep3 || (!job_IDs_match && (matches_dep2 || matches_dep1) ) ) {
                     #ifdef HW_COMPILE
                     has_dependence = true || has_dependence;
                     #else

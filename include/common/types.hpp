@@ -5,7 +5,7 @@
 
 typedef unsigned int JOB_ID_T;
 
-typedef unsigned char BYTE_T;
+typedef uint8_t BYTE_T;
 
 typedef BYTE_T PIXEL_T[3];
 
@@ -40,7 +40,7 @@ struct JOB_SUBTASK {
     // PIXEL_T *input2;
     // PIXEL_T *output;
     int image_size;
-
+    JOB_ID_T job_ID;
 };
 
 struct JOB_STATUS_MESSAGE
