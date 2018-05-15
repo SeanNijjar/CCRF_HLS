@@ -17,7 +17,7 @@
 
 int main(int argc, char *argv[]) 
 {
-    ASSERT(argc > 2, "Expect at least one path to a set of file lists to test");
+    ASSERT(argc > 2, "Expect at least 2 arguments: 1) path to the folder of the file list 2) the file containing the list of files to test");
     std::string root_dir = argv[1];
     std::string file_with_file_lists_path = argv[2];
 

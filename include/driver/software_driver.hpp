@@ -17,7 +17,7 @@ class SoftwareTestDriver : public Driver
 {
   public:
     SoftwareTestDriver(hls::stream<JobPackage> &incoming_queue, hls::stream<JOB_STATUS_MESSAGE> &output_queue) : 
-        Driver(incoming_job_request_queue, outgoing_job_response_queue), already_started(false)
+        Driver(incoming_queue, output_queue), already_started(false)
     {
         InitializeCcrfUnitsAndQueues(default_ccrf_unit_count);
     }
@@ -33,20 +33,6 @@ class SoftwareTestDriver : public Driver
     ~SoftwareTestDriver();
 
     void SendJobLaunchRequest(JobPackage job_request);
-
-    // void SetJobLaunchQueue(hls::stream<JobPackage> &job_request_queue)
-    // {
-    //     if (!already_started) {
-    //         Start();
-    //     }
-    // }
-
-    // void SetJobStatusQueue(hls::stream<JOB_STATUS_MESSAGE> &job_status_queue)
-    // {
-    //     if (!already_started) {
-    //         Start();
-    //     }
-    // }
 
     void Start();
 
@@ -65,8 +51,6 @@ class SoftwareTestDriver : public Driver
 
     std::thread ccrf_threads[CCRF_COMPUTE_UNIT_COUNT];
 
-    hls::stream<JobPackage> *job_request_queue;
-    hls::stream<JOB_STATUS_MESSAGE> *job_status_queue;
 
     // CCRF Engine Queues
     //hls::stream<JobPackage> incoming_job_request_queue; // 1  incoming_job_request_queue

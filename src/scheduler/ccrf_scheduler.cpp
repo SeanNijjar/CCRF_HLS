@@ -42,7 +42,7 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
                 jobs_to_schedule_queue.write(job_request);
             }
         }
-    } while (0);
+    } while (1);
 }
 
 void JobResultsNotifier_StaticWrapper(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
@@ -326,6 +326,7 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
             // since the unit is idle, it can't be processing dependencies for the task
             continue;
         }
+        // Past here indicates the 1
         #pragma HLS UNROLL
         for (int i = 0; i < dependency_count; i++) {
             const PIXEL_T *const task_dependence = (PIXEL_T*)dependencies[i];
