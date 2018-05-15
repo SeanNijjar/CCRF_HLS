@@ -41,14 +41,6 @@ struct JOB_SUBTASK {
     // PIXEL_T *output;
     int image_size;
 
-    void Initialize(PIXEL_T * _input1, PIXEL_T * _input2, PIXEL_T *_output, int _image_size)
-    {
-        input1 = (uintptr_t)_input1;
-        input2 = (uintptr_t)_input2;
-        output = (uintptr_t)_output;
-        image_size = _image_size;
-    }
-
 };
 
 struct JOB_STATUS_MESSAGE

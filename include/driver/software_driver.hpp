@@ -56,17 +56,14 @@ class SoftwareTestDriver : public Driver
         // ccrf_output_queues.resize(unit_count);//, hls::stream<PIXEL_T*>());
         // ccrf_input_queues.resize(unit_count);
         
-        for (int i = 0; i < unit_count; i++) {
-            //ccrf_compute_units.push_back(SoftwareDummyCCRF());//ccrf_input_queues[i], ccrf_output_queues[i]));
-            ccrf_output_queues[i] = &ccrf_compute_units[i].output_subtask_queue;
-            ccrf_input_queues[i] = &ccrf_compute_units[i].input_subtask_queue;
-        }
     }
 
     std::thread ccrf_top_level_scheduler_thread;
     std::thread job_result_notifier_thread;
     std::thread ccrf_task_scheduler_thread;
     std::thread ccrf_dispatcher_thread;
+
+    std::thread ccrf_threads[CCRF_COMPUTE_UNIT_COUNT];
 
     hls::stream<JobPackage> *job_request_queue;
     hls::stream<JOB_STATUS_MESSAGE> *job_status_queue;
@@ -78,11 +75,27 @@ class SoftwareTestDriver : public Driver
     hls::stream<JOB_SUBTASK> scheduler_to_dispatcher_subtask_queue; // 4
     hls::stream<JOB_COMPLETION_PACKET> jobs_in_progress_queue; // 5
     hls::stream<JOB_COMPLETION_PACKET> completed_job_from_completion_module_queue; // 6
-    hls::stream<JOB_SUBTASK> *ccrf_input_queues[CCRF_COMPUTE_UNIT_COUNT];
-    hls::stream<PIXEL_T*> *ccrf_output_queues[CCRF_COMPUTE_UNIT_COUNT]; // 7 +
 
     //std::vector<SoftwareDummyCCRF> ccrf_compute_units;
-    SoftwareDummyCCRF ccrf_compute_units[CCRF_COMPUTE_UNIT_COUNT];
+    #ifdef HW_COMPILE
+    hls::stream<uintptr_t> ccrf_output_queues_1;
+    hls::stream<JOB_SUBTASK> ccrf_input_queues_1;
+    hls::stream<uintptr_t> ccrf_output_queues_2;
+    hls::stream<JOB_SUBTASK> ccrf_input_queues_2;
+    hls::stream<uintptr_t> ccrf_output_queues_3;
+    hls::stream<JOB_SUBTASK> ccrf_input_queues_3;
+    hls::stream<uintptr_t> ccrf_output_queues_4;
+    hls::stream<JOB_SUBTASK> ccrf_input_queues_4;
+    hls::stream<uintptr_t> ccrf_output_queues_5;
+    hls::stream<JOB_SUBTASK> ccrf_input_queues_5;
+    hls::stream<uintptr_t> ccrf_output_queues_6;
+    hls::stream<JOB_SUBTASK> ccrf_input_queues_6;
+    #else
+    hls::stream<uintptr_t> ccrf_output_queues[CCRF_COMPUTE_UNIT_COUNT];
+    hls::stream<JOB_SUBTASK> ccrf_input_queues[CCRF_COMPUTE_UNIT_COUNT];
+    #endif
+    CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_COMPUTE_UNIT_COUNT];
+    //SoftwareDummyCCRF ccrf_compute_units[CCRF_COMPUTE_UNIT_COUNT];
 
 
     bool already_started;

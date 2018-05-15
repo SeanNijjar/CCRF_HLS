@@ -5,6 +5,11 @@ CPPFLAGS := -O3 -std=c++14
 BUILDDIR := build/
 BUILDTESTDIR := build_test/
 
+HW_COMPILE_FLAGS := ""
+ifeq ($(HW_COMPILE),1)
+HW_COMPILE_FLAGS := -DHW_COMPILE
+endif
+
 COMPONENTS := application ccrf common common/job_descriptor driver scheduler
 TEST_COMPONENTS := test
 
@@ -46,7 +51,8 @@ checkdirs: $(BUILD_DIRS) $(BUILD_TEST_DIRS)
 all: checkdirs $(OBJS) 
 
 driver_test_main:
-	g++ -std=c++14 -Iinclude/ \
+	g++ -std=c++14 $(HW_COMPILE_FLAGS) \
+	-Iinclude/ \
 	-Iinclude/ccrf \
 	-Iinclude/scheduler/ \
 	-Iinclude/common \
@@ -61,6 +67,7 @@ driver_test_main:
 	src/driver/software_driver.cpp \
 	src/driver/driver.cpp \
 	src/ccrf/ccrf.cpp \
+	src/ccrf/software_test_ccrf.cpp \
 	test/driver/driver_test_main.cpp \
 	-lopencv_highgui -lopencv_imgcodecs -lopencv_core -lpthread \
 	-o driver_test_main  -g \

@@ -20,154 +20,133 @@ const int JOBS_TO_SCHEDULE_QUEUE_DEPTH = 16;
 // TODO: Ideally this can be passed to the FPGA
 extern PIXEL_T *CCRF_SCRATCHPAD_START_ADDR;
 
+template <typename STREAM_CLASS>
+bool CcrfQueuesBusy(int queue_id, 
+#ifdef HW_COMPILE
+    hls::stream<STREAM_CLASS> &subtask_to_ccrf_queue_1,
+    hls::stream<STREAM_CLASS> &subtask_to_ccrf_queue_2,
+    hls::stream<STREAM_CLASS> &subtask_to_ccrf_queue_3,
+    hls::stream<STREAM_CLASS> &subtask_to_ccrf_queue_4,
+    hls::stream<STREAM_CLASS> &subtask_to_ccrf_queue_5,
+    hls::stream<STREAM_CLASS> &subtask_to_ccrf_queue_6
+#else
+    hls::stream<STREAM_CLASS> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
+#endif
+)
+{
+    bool queue_busy = true;
+    #ifdef HW_COMPILE
+    switch (queue_id) {
+        case 0: queue_busy = subtask_to_ccrf_queue_1.full(); break;
+        case 1: queue_busy = subtask_to_ccrf_queue_2.full(); break;
+        case 2: queue_busy = subtask_to_ccrf_queue_3.full(); break;
+        case 3: queue_busy = subtask_to_ccrf_queue_4.full(); break;
+        case 4: queue_busy = subtask_to_ccrf_queue_5.full(); break;
+        case 5: queue_busy = subtask_to_ccrf_queue_6.full(); break;
+        default: assert(false); queue_busy = true; break;
+    };
+    #else 
+    queue_busy = !subtask_to_ccrf_queues[queue_id].empty();
+    #endif
+    return queue_busy;
+}
 
 void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests, 
                            hls::stream<JOB_STATUS_MESSAGE> &response_message_queue,
                            hls::stream<JobPackage> &jobs_to_schedule_queue,
                            hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_queue);
 
-
-template <typename CCRF_TYPE>
 void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
                        hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress, 
-                       CCRF_TYPE ccrf_compute_units[CCRF_COMPUTE_UNIT_COUNT])
-                       //hls::stream<PIXEL_T*> *CCRF_completed_outputs[CCRF_COMPUTE_UNIT_COUNT])
-{
-    //DO_PRAGMA(HLS stream depth=DISPATCHER_STREAM_DEPTH variable=CCRF_completed_outputs)
-    DO_PRAGMA(HLS stream depth=COMPLETED_JOBS_QUEUE_DEPTH variable=completed_job_queue)
-    DO_PRAGMA(HLS stream depth=JOBS_TO_SCHEDULE_QUEUE_DEPTH variable=jobs_in_progress); // Force only one job allowed at a time    
-
-    static bool job_info_valid = false;
-    static JOB_COMPLETION_PACKET job_info;
-
-    do {
-        while (!job_info_valid) {
-            if (!jobs_in_progress.empty()) {
-                JOB_COMPLETION_PACKET tmp_job_info = jobs_in_progress.read();
-                job_info = tmp_job_info;
-                job_info_valid = true;
-            }
-        }
-
-        while (job_info_valid) {
-            if (completed_job_queue.full()) {
-                continue;
-            }
-
-            bool job_completed = false;
-            for (int i = 0; !job_completed && i < CCRF_COMPUTE_UNIT_COUNT; i++) {
-                //if (CCRF_completed_outputs[i]->empty()) {
-                if (!ccrf_compute_units[i].running || ccrf_compute_units[i].output_subtask_queue.empty()) {
-                    continue;
-                }
-
-                //const PIXEL_T *const output_addr = CCRF_completed_outputs[i]->read();
-                PIXEL_T * output_addr = (PIXEL_T*)ccrf_compute_units[i].output_subtask_queue.read();
-                job_completed = (output_addr == job_info.output_address);
-                if (job_completed) {
-                    completed_job_queue.write(job_info);
-                    job_info_valid = false;
-                    job_completed = true;
-                }
-            }
-        }
-
-    } while (1);
-}
+                       volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#ifdef HW_COMPILE
+                       hls::stream<uintptr_t> &completed_subtasks_queue_1,
+                       hls::stream<uintptr_t> &completed_subtasks_queue_2,
+                       hls::stream<uintptr_t> &completed_subtasks_queue_3,
+                       hls::stream<uintptr_t> &completed_subtasks_queue_4,
+                       hls::stream<uintptr_t> &completed_subtasks_queue_5,
+                       hls::stream<uintptr_t> &completed_subtasks_queue_6
+#else
+                       hls::stream<uintptr_t> completed_queues_from_ccrf_units[CCRF_COMPUTE_UNIT_COUNT]
+#endif
+);
 
 void JobResultsNotifier_StaticWrapper(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
                        hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress,
-                       CCRF ccrf_compute_units[CCRF_COMPUTE_UNIT_COUNT]);
+                       volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#ifdef HW_COMPILE
+                       hls::stream<uintptr_t> &completed_subtasks_queue_1,
+                       hls::stream<uintptr_t> &completed_subtasks_queue_2,
+                       hls::stream<uintptr_t> &completed_subtasks_queue_3,
+                       hls::stream<uintptr_t> &completed_subtasks_queue_4,
+                       hls::stream<uintptr_t> &completed_subtasks_queue_5,
+                       hls::stream<uintptr_t> &completed_subtasks_queue_6
+#else
+                       hls::stream<uintptr_t> completed_subtasks_queues[CCRF_COMPUTE_UNIT_COUNT]
+#endif
+);
 
 void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs, 
                           hls::stream<JOB_SUBTASK> &subtask_queue, 
                           hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress);
 
-template <typename CCRF_TYPE>
-int GetAvailableCCRFUnit(CCRF_TYPE ccrf_compute_units[CCRF_COMPUTE_UNIT_COUNT]) 
-{
-    for (int i = 0; i < CCRF_COMPUTE_UNIT_COUNT; i++) {
-        if (ccrf_compute_units[i].is_idle()) {
-            return i;
-        }
-    }
-    return -1;
-}
+int GetAvailableCCRFUnit(volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#ifdef HW_COMPILE
+                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
+                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
+                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_3,
+                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_4,
+                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_5,
+                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_6
+#else
+                         hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
+#endif
+);
+
 
 /* Assumes all HDR images are the same size. Doesn't perform an overlap test */
-template <typename CCRF_TYPE>
 bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check, 
-                                 CCRF_TYPE ccrf_compute_units[CCRF_COMPUTE_UNIT_COUNT]) {
-    const int dependency_count = 3;
-    typedef void* dependency_type;
-    //const uintptr_t dependencies[3] = {task_to_check.input1, task_to_check.input2, task_to_check.output};
-    uintptr_t dependencies[3]; //= {task_to_check.input1, task_to_check.input2, task_to_check.output};
-     dependencies[0] = task_to_check.input1;
-     dependencies[1] = task_to_check.input2;
-     dependencies[2] = task_to_check.output;
-    for (int i = 0; i < dependency_count; i++) {
-        const PIXEL_T *const task_dependence = (PIXEL_T*)dependencies[i];
-        for (int ccrf_unit = 0; ccrf_unit < CCRF_COMPUTE_UNIT_COUNT; ccrf_unit++) {
-            if (!ccrf_compute_units[ccrf_unit].running || ccrf_compute_units[ccrf_unit].is_idle()) {
-                // neither of these two cases can possibly contribute to a dependence match
-                continue;
-            }
-            if (i == 2) {
-                // For inputs, check for dependence against outputs, so we wait for the result
-                // to be available
-                if ((uintptr_t)ccrf_compute_units[ccrf_unit].GetTaskDependence(0) == (uintptr_t)task_dependence ||
-                    (uintptr_t)ccrf_compute_units[ccrf_unit].GetTaskDependence(1) == (uintptr_t)task_dependence) {
-                    return true;
-                }
-            } else {
-                // for outputs, make sure current inputs don't wait for this location.
-                // so as not to overwrite a current location that is used as input for
-                // another subtask
-                if ((uintptr_t)ccrf_compute_units[ccrf_unit].GetTaskDependence(2) == (uintptr_t)task_dependence) {
-                    return true;
-                }
-            }
-        }
-    }
-    return false;
-}
+                                 volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#ifdef HW_COMPILE
+                                 hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
+                                 hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
+                                 hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_3,
+                                 hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_4,
+                                 hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_5,
+                                 hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_6
+#else
+                                 hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
+#endif
+);
 
-
-template <typename CCRF_TYPE>
 void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in, 
-                           CCRF_TYPE ccrf_compute_units[CCRF_COMPUTE_UNIT_COUNT]) 
-{
-    DO_PRAGMA(HLS stream depth=DISPATCHER_STREAM_DEPTH variable=dispatcher_stream_in)
-    static JOB_SUBTASK task_to_add;
-    static bool task_to_add_pending = false; // If we popped the task from the stream but couldn't run it last call
-    
-    while (1) {
-        if (!task_to_add_pending && !dispatcher_stream_in.empty()) {
-            task_to_add = dispatcher_stream_in.read();
-            task_to_add_pending = true;
-        }
-
-        if (task_to_add_pending) {
-            bool dependence_is_processing = DoesTaskWaitForDependencies(task_to_add, ccrf_compute_units);
-            if (dependence_is_processing) {
-                continue;
-            }
-            int available_ccrf_unit = GetAvailableCCRFUnit(ccrf_compute_units);
-            if (available_ccrf_unit >= 0) {
-                ccrf_compute_units[available_ccrf_unit].input_subtask_queue.write(task_to_add);
-                task_to_add_pending = false;
-                task_to_add.input1 = (uintptr_t)nullptr;
-                task_to_add.input2 = (uintptr_t)nullptr;
-                task_to_add.output = (uintptr_t)nullptr;
-                task_to_add.image_size = 0;
-            }
-        }
-    }
-}
+                           volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#ifdef HW_COMPILE
+                           hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
+                           hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
+                           hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_3,
+                           hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_4,
+                           hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_5,
+                           hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_6
+#else
+                           hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
+#endif
+);
 
 
-void CcrfSubtaskDispatcher_StaticWrapper(hls::stream<JOB_SUBTASK> &dispatcher_stream_in, 
-                                         CCRF ccrf_compute_units[CCRF_COMPUTE_UNIT_COUNT]);
+void CcrfSubtaskDispatcher_StaticWrapper(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
+                                         CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#ifdef HW_COMPILE
+                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
+                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
+                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_3,
+                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_4,
+                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_5,
+                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_6
+#else
+                                         hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
+#endif
+);
 
 #ifdef HW_COMPILE
 void CcrfWrapper(hls::stream<JobPackage> incoming_job_requests, 
