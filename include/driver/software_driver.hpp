@@ -41,7 +41,15 @@ class SoftwareTestDriver : public Driver
     {
         // ccrf_output_queues.resize(unit_count);//, hls::stream<PIXEL_T*>());
         // ccrf_input_queues.resize(unit_count);
-        
+        for (int i = 0; i < CCRF_COMPUTE_UNIT_COUNT; i++) {
+            ccrf_unit_status_signals[i].is_processing = false;
+            ccrf_unit_status_signals[i].running = false;
+            ccrf_unit_status_signals[i].job_info.image_size = 0;
+            ccrf_unit_status_signals[i].job_info.input1 = (uintptr_t)nullptr;
+            ccrf_unit_status_signals[i].job_info.input2 = (uintptr_t)nullptr;
+            ccrf_unit_status_signals[i].job_info.output = (uintptr_t)nullptr;
+            ccrf_unit_status_signals[i].job_info.job_ID = 0;
+        }
     }
 
     std::thread ccrf_top_level_scheduler_thread;

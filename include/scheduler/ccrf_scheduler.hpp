@@ -39,12 +39,12 @@ bool CcrfQueuesBusy(int queue_id,
     #ifdef HW_COMPILE
     switch (queue_id) {
         #ifdef CSIM
-        case 0: queue_busy = subtask_to_ccrf_queue_1.size() == 1; break;
-        case 1: queue_busy = subtask_to_ccrf_queue_2.size() == 1; break;
-        case 2: queue_busy = subtask_to_ccrf_queue_3.size() == 1; break;
-        case 3: queue_busy = subtask_to_ccrf_queue_4.size() == 1; break;
-        case 4: queue_busy = subtask_to_ccrf_queue_5.size() == 1; break;
-        case 5: queue_busy = subtask_to_ccrf_queue_6.size() == 1; break;
+        case 0: queue_busy = !subtask_to_ccrf_queue_1.empty(); break;
+        case 1: queue_busy = !subtask_to_ccrf_queue_2.empty(); break;
+        case 2: queue_busy = !subtask_to_ccrf_queue_3.empty(); break;
+        case 3: queue_busy = !subtask_to_ccrf_queue_4.empty(); break;
+        case 4: queue_busy = !subtask_to_ccrf_queue_5.empty(); break;
+        case 5: queue_busy = !subtask_to_ccrf_queue_6.empty(); break;
         #else
         case 0: queue_busy = subtask_to_ccrf_queue_1.full(); break;
         case 1: queue_busy = subtask_to_ccrf_queue_2.full(); break;
@@ -68,7 +68,7 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
 
 void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
                        hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress, 
-                       volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+                       CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
 #ifdef HW_COMPILE
                        hls::stream<uintptr_t> &completed_subtasks_queue_1,
                        hls::stream<uintptr_t> &completed_subtasks_queue_2,
@@ -83,7 +83,7 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
 
 void JobResultsNotifier_StaticWrapper(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
                        hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress,
-                       volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+                       CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
 #ifdef HW_COMPILE
                        hls::stream<uintptr_t> &completed_subtasks_queue_1,
                        hls::stream<uintptr_t> &completed_subtasks_queue_2,
@@ -100,7 +100,7 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
                           hls::stream<JOB_SUBTASK> &subtask_queue, 
                           hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress);
 
-int GetAvailableCCRFUnit(volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+int GetAvailableCCRFUnit(CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
 #ifdef HW_COMPILE
                          hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
                          hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
@@ -116,7 +116,7 @@ int GetAvailableCCRFUnit(volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[C
 
 /* Assumes all HDR images are the same size. Doesn't perform an overlap test */
 bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check, 
-                                 volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+                                 CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
 #ifdef HW_COMPILE
                                  hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
                                  hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
@@ -130,7 +130,7 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
 );
 
 void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in, 
-                           volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+                           CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
 #ifdef HW_COMPILE
                            hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
                            hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,

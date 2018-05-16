@@ -6,10 +6,6 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
 {
     #pragma HLS STREAM variable=input_subtask_queue depth=1
     #pragma HLS STREAM variable=output_subtask_queue depth=1
-    JOB_SUBTASK ccrf_task_details;
-    ccrf_task_details.input1 = (uintptr_t)nullptr;
-    ccrf_task_details.input2 = (uintptr_t)nullptr;
-    ccrf_task_details.input2 = (uintptr_t)nullptr;
     status_signals.is_processing = false;
     status_signals.running = true;
     while (1) {
@@ -17,31 +13,37 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
             ASSERT(!status_signals.is_processing, "Tried to start a new job on an already busy CCRF unit");
             ASSERT(input_subtask_queue.size() <= 1, "Multiple subtasks were pushed to a CCRF at the same time");
             status_signals.is_processing = true;
-            ccrf_task_details = input_subtask_queue.read();
-            status_signals.task_dep_ptr1 = ccrf_task_details.input1;
-            status_signals.task_dep_ptr2 = ccrf_task_details.input2;
-            status_signals.task_dep_ptr3 = ccrf_task_details.output;
-            status_signals.associated_job = ccrf_task_details.job_ID;
+            //ccrf_task_details = input_subtask_queue.read();
+            status_signals.job_info = input_subtask_queue.read();
+            // status_signals.task_dep_ptr1 = ccrf_task_details.input1;
+            // status_signals.task_dep_ptr2 = ccrf_task_details.input2;
+            // status_signals.task_dep_ptr3 = ccrf_task_details.output;
+            // status_signals.associated_job = ccrf_task_details.job_ID;
+            // status_signals.image_size = ccrf_task_details.image_size;
 
-            PIXEL_T *input1 = (PIXEL_T*)ccrf_task_details.input1;
-            PIXEL_T *input2 = (PIXEL_T*)ccrf_task_details.input2;
-            PIXEL_T *output = (PIXEL_T*)ccrf_task_details.output;
-            for (int i = 0; i < ccrf_task_details.image_size; i++) {
+            PIXEL_T *input1 = (PIXEL_T*)status_signals.job_info.input1;
+            PIXEL_T *input2 = (PIXEL_T*)status_signals.job_info.input2;
+            PIXEL_T *output = (PIXEL_T*)status_signals.job_info.output;
+            for (int i = 0; i < status_signals.job_info.image_size; i++) {
                 output[i][0] = (BYTE_T)(((uint32_t)input1[i][0] + (uint32_t)input2[i][0]) / 2);
                 output[i][1] = (BYTE_T)(((uint32_t)input1[i][1] + (uint32_t)input2[i][1]) / 2);
                 output[i][2] = (BYTE_T)(((uint32_t)input1[i][2] + (uint32_t)input2[i][2]) / 2);
             }
 
-            output_subtask_queue.write(ccrf_task_details.output);
+            output_subtask_queue.write(status_signals.job_info.output);
             while (!output_subtask_queue.empty());// spin until the results have been read back
-            ccrf_task_details.input1 = (uintptr_t)nullptr;
-            ccrf_task_details.input2 = (uintptr_t)nullptr;
-            ccrf_task_details.output = (uintptr_t)nullptr;
-            status_signals.task_dep_ptr1 = (uintptr_t)nullptr;
-            status_signals.task_dep_ptr2 = (uintptr_t)nullptr;
-            status_signals.task_dep_ptr3 = (uintptr_t)nullptr;
+            
+            status_signals.job_info.input1 = (uintptr_t)nullptr;
+            status_signals.job_info.input2 = (uintptr_t)nullptr;
+            status_signals.job_info.output = (uintptr_t)nullptr;
+            status_signals.job_info.image_size = 0;
+            status_signals.job_info.job_ID = 0;
+            // status_signals.task_dep_ptr1 = (uintptr_t)nullptr;
+            // status_signals.task_dep_ptr2 = (uintptr_t)nullptr;
+            // status_signals.task_dep_ptr3 = (uintptr_t)nullptr;
+            // status_signals.associated_job = 0;
+            // status_signals.image_size = 0;
             status_signals.is_processing = false;
-            status_signals.associated_job = 0;
         }
     }
 }

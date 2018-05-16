@@ -5,6 +5,11 @@
 #include "utils.hpp"
 #include <hls_stream.h>
 
+#ifdef CSIM
+#include <chrono>
+#include <thread>
+#endif
+
 using namespace hls;
 
 
@@ -49,7 +54,7 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
 
 void JobResultsNotifier_StaticWrapper(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
                        hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress,
-                       volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+                       CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
 #ifdef HW_COMPILE
                        hls::stream<uintptr_t> &completed_subtasks_queue_1,
                        hls::stream<uintptr_t> &completed_subtasks_queue_2,
@@ -132,7 +137,11 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
                 const bool last_task = (num_outputs == 1);
                 for (int input = 0; input < ldr_image_count - layer - 1; input++) {
 
+                    #ifdef CSIM
+                    while(subtask_queue.size() == 1); 
+                    #else
                     while(subtask_queue.full()); 
+                    #endif
 
                     // The final output should go to the actual specified output location, not the scratchpad
                     PIXEL_T *real_output_addr = (last_task) ? (PIXEL_T*)current_job.OUTPUT_IMAGE_LOCATION : output_addresses[input];
@@ -143,6 +152,10 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
                     ASSERT(&real_output_addr[image_size] < CCRF_SCRATCHPAD_END_ADDR, "Out of range output");
                     new_subtask.image_size = image_size;
                     new_subtask.job_ID = current_job_ID;
+                    ASSERT(new_subtask.image_size != 0, "Invalid subtask image_size");
+                    ASSERT(new_subtask.input1 != (uintptr_t)nullptr, "Invalid subtask input1");
+                    ASSERT(new_subtask.input2 != (uintptr_t)nullptr, "Invalid subtask input2");
+                    ASSERT(new_subtask.output != (uintptr_t)nullptr, "Invalid subtask output");
                     subtask_queue.write(new_subtask);
                 }
                 if (!last_task) {
@@ -158,7 +171,7 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
 
 void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
                        hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress, 
-                       volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+                       CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
 #ifdef HW_COMPILE
                        hls::stream<uintptr_t> &completed_subtasks_queue_1,
                        hls::stream<uintptr_t> &completed_subtasks_queue_2,
@@ -248,7 +261,7 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
 }
 
 
-int GetAvailableCCRFUnit(volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+int GetAvailableCCRFUnit(CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
 #ifdef HW_COMPILE
                          hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
                          hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
@@ -286,10 +299,16 @@ int GetAvailableCCRFUnit(volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[C
     return -1;
 }
 
-
+bool IntervalsOverlap(uintptr_t  interval_1, int interval_1_byte_count, uintptr_t interval_2, int interval_2_byte_count)
+{
+    //return interval_1 == interval_2;
+    bool interval_1_starts_in_interval_2 = (interval_2 <= interval_1 && interval_1 <= interval_2 + interval_2_byte_count);
+    bool interval_2_starts_in_interval_1 = (interval_1 <= interval_2 && interval_2 <= interval_1 + interval_1_byte_count);
+    return interval_1_starts_in_interval_2 || interval_2_starts_in_interval_1;
+}
 
 bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check, 
-                                 volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+                                 CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
 #ifdef HW_COMPILE
                                  hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
                                  hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
@@ -329,12 +348,21 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
                 subtask_to_ccrf_queues
             #endif
             );
-        bool is_idle = !(ccrf_status_signals[ccrf_unit].running);
-        is_idle = is_idle || (!queue_busy && !(ccrf_status_signals[ccrf_unit].is_processing));
+        JOB_SUBTASK ccrf_job = ccrf_status_signals[ccrf_unit].job_info;
+        bool is_running = ccrf_status_signals[ccrf_unit].running;
+        bool is_processing = ccrf_status_signals[ccrf_unit].is_processing;
+        bool is_idle = (!queue_busy && !is_processing) && is_running;
         if (is_idle) { //ccrf_status_signals[ccrf_unit].is_idle()) {
             // since the unit is idle, it can't be processing dependencies for the task
+            // wait for the ccrf unit to load the value if queue_busy
             continue;
         }
+        if (queue_busy || !is_running) {
+            // scan again - wait for this unit to load it's value or power up
+            ccrf_unit = -1;
+            continue;
+        }
+
 
         /* In the case where job IDs do not match (i.e. we are trying to schedule some subtasks of the)
          * next job while the tail of the current job is finishing), then we need to check every input and output
@@ -342,20 +370,29 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
          * there is no relationship between inputs of one job and the outputs of another (or vice versa).
          * We only have a relationship between the inputs and outputs of subtasks of the same job
          **/
-        bool job_IDs_match = (task_to_check.job_ID == ccrf_status_signals[ccrf_unit].associated_job);
+        bool job_IDs_match = (task_to_check.job_ID == ccrf_job.job_ID);
+        //if (!job_IDs_match) {
+            //return true; // big hammer - don't allow images to be processed in parallel
+        //}
+        int ccrf_image_size = ccrf_job.image_size;
+        ASSERT(ccrf_image_size >= 65536, "IMAGE TOO SMALL");
         // Past here indicates the 1
         #pragma HLS UNROLL
-        for (int i = 0; i < dependency_count; i++) {
-            const PIXEL_T *const task_dependence = (PIXEL_T*)dependencies[i];
-            bool matches_dep1 = (uintptr_t)ccrf_status_signals[ccrf_unit].task_dep_ptr1 == (uintptr_t)task_dependence;
-            bool matches_dep2 = (uintptr_t)ccrf_status_signals[ccrf_unit].task_dep_ptr2 == (uintptr_t)task_dependence;
-            bool matches_dep3 = (uintptr_t)ccrf_status_signals[ccrf_unit].task_dep_ptr3 == (uintptr_t)task_dependence;
+        for (int i = dependency_count - 1; i >= 0; i--) {
+            const uintptr_t task_dependence = dependencies[i];
+            bool matches_dep1 = IntervalsOverlap(ccrf_job.input1, ccrf_image_size * sizeof(PIXEL_T), 
+                                                 task_dependence, task_to_check.image_size * sizeof(PIXEL_T));
+            bool matches_dep2 = IntervalsOverlap(ccrf_job.input2, ccrf_image_size * sizeof(PIXEL_T), 
+                                                 task_dependence, task_to_check.image_size * sizeof(PIXEL_T));
+            bool matches_dep3 = IntervalsOverlap(ccrf_job.output, ccrf_image_size * sizeof(PIXEL_T), 
+                                                 task_dependence, task_to_check.image_size * sizeof(PIXEL_T));
             if (i == 2) {
                 // For inputs, check for dependence against outputs, so we wait for the result
                 // to be available
                 if (matches_dep1 || matches_dep2 || (!job_IDs_match && matches_dep3)) {
                     #ifdef HW_COMPILE
-                    has_dependence = true || has_dependence;
+                    return true;
+                    has_dependence = true;// || has_dependence;
                     #else
                     return true;
                     #endif
@@ -366,7 +403,8 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
                 // another subtask
                 if (matches_dep3 || (!job_IDs_match && (matches_dep2 || matches_dep1) ) ) {
                     #ifdef HW_COMPILE
-                    has_dependence = true || has_dependence;
+                    return true;
+                    has_dependence = true;// || has_dependence;
                     #else
                     return true;
                     #endif
@@ -384,7 +422,7 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
 
 //template <typename CCRF_TYPE>
 void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in, 
-                           volatile CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+                           CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
 #ifdef HW_COMPILE                           
                            hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
                            hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
@@ -465,6 +503,7 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
                 task_to_add.input1 = (uintptr_t)nullptr;
                 task_to_add.input2 = (uintptr_t)nullptr;
                 task_to_add.output = (uintptr_t)nullptr;
+                task_to_add.image_size = 0;
                 task_to_add.image_size = 0;
             }
         }
