@@ -64,32 +64,32 @@ void SoftwareTestDriver::Start()
     
     #ifdef HW_COMPILE
     ccrf_threads[0] = std::thread(Run_SoftwareDummyCCRF,
-                                  std::ref(ccrf_unit_status_signals[0]),
+                                  &(ccrf_unit_status_signals[0]),
                                   std::ref(ccrf_input_queues_1),
                                   std::ref(ccrf_output_queues_1));
     if (CCRF_COMPUTE_UNIT_COUNT > 1) 
         ccrf_threads[1] = std::thread(Run_SoftwareDummyCCRF,
-                                  std::ref(ccrf_unit_status_signals[1]),
+                                  &(ccrf_unit_status_signals[1]),
                                   std::ref(ccrf_input_queues_2),
                                   std::ref(ccrf_output_queues_2));
     if (CCRF_COMPUTE_UNIT_COUNT > 2) 
     ccrf_threads[2] = std::thread(Run_SoftwareDummyCCRF,
-                                  std::ref(ccrf_unit_status_signals[2]),
+                                  &(ccrf_unit_status_signals[2]),
                                   std::ref(ccrf_input_queues_3),
                                   std::ref(ccrf_output_queues_3));
     if (CCRF_COMPUTE_UNIT_COUNT > 3) 
     ccrf_threads[3] = std::thread(Run_SoftwareDummyCCRF,
-                                  std::ref(ccrf_unit_status_signals[3]),
+                                  &(ccrf_unit_status_signals[3]),
                                   std::ref(ccrf_input_queues_4),
                                   std::ref(ccrf_output_queues_4));
     if (CCRF_COMPUTE_UNIT_COUNT > 4) 
     ccrf_threads[4] = std::thread(Run_SoftwareDummyCCRF,
-                                  std::ref(ccrf_unit_status_signals[4]),
+                                  &(ccrf_unit_status_signals[4]),
                                   std::ref(ccrf_input_queues_5),
                                   std::ref(ccrf_output_queues_5));
     if (CCRF_COMPUTE_UNIT_COUNT > 5) 
     ccrf_threads[5] = std::thread(Run_SoftwareDummyCCRF,
-                                  std::ref(ccrf_unit_status_signals[5]),
+                                  &(ccrf_unit_status_signals[5]),
                                   std::ref(ccrf_input_queues_6),
                                   std::ref(ccrf_output_queues_6));
     #else

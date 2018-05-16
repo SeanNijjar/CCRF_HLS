@@ -10,7 +10,7 @@
 #include <thread>
 #include <iostream>
 
-void Run_SoftwareDummyCCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals, 
+void Run_SoftwareDummyCCRF(CCRF_UNIT_STATUS_SIGNALS *status_signals, 
             hls::stream<JOB_SUBTASK> &input_subtask_queue, 
             hls::stream<uintptr_t> &output_subtask_queue);
 

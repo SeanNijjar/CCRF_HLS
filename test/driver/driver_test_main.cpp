@@ -27,18 +27,18 @@ int main(int argc, char *argv[])
 
     // Read in the test image sets
     const char *starting_pwd = get_current_dir_name();
-    chdir(root_dir.c_str());
+    assert(chdir(root_dir.c_str()) == 0);
     std::vector<IMAGE_STACK_T> image_stacks;
     for (int i = 1; i < argc; i++) {
         std::string file_list_path(argv[i]);
         auto file_contents = ReadFileContents(file_list_path);
         for (auto file : file_contents) {
-            chdir(std::string(root_dir).append(file).c_str());
+            assert(chdir(std::string(root_dir).append(file).c_str()) == 0);
             image_stacks.push_back(ReadImageStackImages("file_list"));
-            chdir(root_dir.c_str());
+            assert(chdir(root_dir.c_str()) == 0);
         }
     }
-    chdir(starting_pwd);
+    assert(chdir(starting_pwd) == 0);
     delete[] starting_pwd;
     starting_pwd = nullptr;
 
@@ -72,11 +72,13 @@ int main(int argc, char *argv[])
     job_dispatcher.StartDispatcher();
     std::vector<JOB_ID_T> job_IDs;
     for (auto consolidated_job_buffer : consolidated_job_buffers) {
-        /* JOB_ID_T job_ID =*/ job_dispatcher.DispatchJobAsync(JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer));
-        //job_IDs.push_back(job_ID);
+        //job_dispatcher.DispatchJobAsync(JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer));
+        job_dispatcher.DispatchJob(JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer));
     }
 
     job_dispatcher.SynchronizeWait();
+
+    job_dispatcher.PrintJobResultStats();
 
     int i = 0;
     for (auto consolidated_job_buffer : consolidated_job_buffers) {

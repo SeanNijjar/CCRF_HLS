@@ -73,6 +73,7 @@ void JobDispatcher::MainDispatcherThreadLoop()
             JOB_ID_T new_job_ID = GenerateNewJobID();
             pending_jobs.push({new_job_ID, incoming_job_queue.read()});
             active_jobs.insert(new_job_ID);
+            job_start_times[new_job_ID] = std::chrono::high_resolution_clock::now();
             did_something_this_iteration = true;
         }
 
@@ -94,6 +95,7 @@ void JobDispatcher::MainDispatcherThreadLoop()
                 case JOB_STATUS_MESSAGE::JOB_REJECT_PACKET: {
                     dispatch_request_in_flight = false;
                     accelerator_full = true;
+                    job_start_times.erase(job_status.job_ID);
                 } break;
 
                 case JOB_STATUS_MESSAGE::JOB_DONE_PACKET: {
@@ -101,6 +103,13 @@ void JobDispatcher::MainDispatcherThreadLoop()
                         ASSERT(dispatch_request_in_flight == false, "Got job completion package from full accelerator but showing job in flight - doesn't make sense")
 
                     ASSERT(executing_jobs.front().job_ID == job_status.job_ID, "Got out of order job completion - currently unexpected in the design");
+                    auto job_time = std::chrono::system_clock::now() - job_start_times[job_status.job_ID];
+                    auto num_microseconds = std::chrono::duration_cast<std::chrono::microseconds> (job_time);
+
+                    finished_jobs.push_back({num_microseconds, job_status.job_ID, 
+                                             executing_jobs.front().job_descriptor.IMAGE_SIZE(), 
+                                             executing_jobs.front().job_descriptor.LDR_IMAGE_COUNT});
+
                     executing_jobs.pop();
                     JOB_COMPLETION_PACKET job_completion_packet({job_status.job_ID, (uintptr_t)nullptr, -1});
                     outgoing_finished_job_queue.write(job_completion_packet);
@@ -157,4 +166,14 @@ auto JobDispatcher::GetTotalJobExecutionTime(const JOB_ID_T) const
     UNIMPLEMENTED();
 }
 
-
+void JobDispatcher::PrintJobResultStats() 
+{
+    const int num_jobs = finished_jobs.size();
+    for (auto finished_job : finished_jobs) {
+        std::cout << "JOB:" << finished_job.job_ID;
+        std::cout << ", IMAGE_SIZE:" << finished_job.image_size;
+        std::cout << ", LDR_IMAGE_COUNT:" << finished_job.ldr_image_count;
+        std::cout << ", TIME(us):" << finished_job.num_microseconds_to_complete.count();
+        std::cout << std::endl;
+    }
+}

@@ -9,30 +9,17 @@
 #include <hls_stream.h>
 #include <unordered_set>
 #include <queue>
+#include <chrono>
+#include <unordered_map>
 
 class JobPackage;
 
-class RemoteHostDescriptor
+struct FINISHED_JOB_RECORD
 {
-
-  public:
-    //size_t max_
-};
-
-
-/**
- * The job packager will package the contents of a job (i.e. the job descriptor and the input 
- * image data) into a byte array for DMA. It will also be used as a common interface to consistently
- * store and retrieve data from the same location in the byte buffer.
- **/
-class JobPackager
-{
-    // Assumes byte_buffer is entirely in locally addressable memory
-    void CopyJobToBuffer(BYTE_T *byte_buffer, const JobDescriptor *const job_descriptor) {
-
-    }
-
-
+  std::chrono::microseconds num_microseconds_to_complete;
+  JOB_ID_T job_ID;
+  int image_size;
+  int ldr_image_count;
 };
 
 /**
@@ -99,6 +86,9 @@ class JobDispatcher
      **/
     void DispatchJob(const JobDescriptor *const job_descriptor);
 
+    /* Mainly for timing information */
+    void PrintJobResultStats(void);
+
   private:
     bool TryDispatchJob();
 
@@ -114,10 +104,14 @@ class JobDispatcher
 
     JOB_ID_T GenerateNewJobID();
 
+
   private:
     std::unordered_set<JOB_ID_T> active_jobs;
+    std::unordered_map<JOB_ID_T, std::chrono::system_clock::time_point> job_start_times;
     std::queue<JobPackage> pending_jobs;
     std::queue<JobPackage> executing_jobs;
+    std::vector<FINISHED_JOB_RECORD> finished_jobs;
+  
 
     hls::stream<JobDescriptor> incoming_job_queue;
     hls::stream<JobPackage> outgoing_job_queue;
@@ -139,12 +133,10 @@ class JobDispatcher
 
     E_DISPATCH_MODE dispatch_mode;
 
-    RemoteHostDescriptor remote_host_descriptor;
 
     std::thread driver_thread;
 
-    SoftwareTestDriver driver;
-    
+    SoftwareTestDriver driver;    
 };
 
 

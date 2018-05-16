@@ -1,9 +1,15 @@
 
 CXX := g++
 LD := g++
-CPPFLAGS := -O3 -std=c++14
+CPPFLAGS := -std=c++14
 BUILDDIR := build/
 BUILDTESTDIR := build_test/
+
+ifeq ($(ENABLE_OPT), 1)
+CPPFLAGS += -O3 -g
+else
+CPPFLAGS += -g
+endif
 
 HW_COMPILE_FLAGS := ""
 ifeq ($(HW_COMPILE),1)
@@ -51,7 +57,7 @@ checkdirs: $(BUILD_DIRS) $(BUILD_TEST_DIRS)
 all: checkdirs $(OBJS) 
 
 driver_test_main:
-	g++ -std=c++14 $(HW_COMPILE_FLAGS) \
+	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) \
 	-Iinclude/ \
 	-Iinclude/ccrf \
 	-Iinclude/scheduler/ \
@@ -70,7 +76,7 @@ driver_test_main:
 	src/ccrf/software_test_ccrf.cpp \
 	test/driver/driver_test_main.cpp \
 	-lopencv_highgui -lopencv_imgcodecs -lopencv_core -lpthread \
-	-o driver_test_main  -g \
+	-o driver_test_main  
 
 #ccrf_scheduler_test: all $(TEST_OBJS)
 ccrf_scheduler_test: 

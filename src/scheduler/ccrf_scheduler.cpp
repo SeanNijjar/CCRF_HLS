@@ -30,6 +30,9 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
     DO_PRAGMA(HLS stream depth=COMPLETED_JOBS_QUEUE_DEPTH variable=completed_jobs_queue)
 
     do {
+        #ifdef CSIM
+        bool did_something = false;
+        #endif
         while(!completed_jobs_queue.empty()) {
             JOB_COMPLETION_PACKET completed_job = completed_jobs_queue.read();
             JOB_STATUS_MESSAGE completion_packet_for_host;
@@ -37,6 +40,9 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
             completion_packet_for_host.job_ID = completed_job.job_ID;
             ASSERT(!response_message_queue.full(), "response message queue is full");
             response_message_queue.write(completion_packet_for_host);
+            #ifdef CSIM
+            did_something = true;
+            #endif
         }
 
         if (!incoming_job_requests.empty()) {
@@ -47,8 +53,17 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
             response_message_queue.write(response_packet);
             if (!jobs_to_schedule_queue.full()) {
                 jobs_to_schedule_queue.write(job_request);
-            }
+                #ifdef CSIM
+                did_something = true;
+                #endif
+            } 
         }
+
+        #ifdef CSIM
+        if (!did_something) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        #endif
     } while (1);
 }
 
@@ -108,7 +123,12 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
             current_job = current_job_package.job_descriptor;
             current_job_ID = current_job_package.job_ID;
             current_job_valid = true;
+        } 
+        #ifdef CSIM
+        else if (!current_job_valid) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
+        #endif
 
         const int ADDR_BUFFER_SIZE = 10;
         uintptr_t input_addresses[ADDR_BUFFER_SIZE];
@@ -196,8 +216,8 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
     DO_PRAGMA(HLS stream depth=COMPLETED_JOBS_QUEUE_DEPTH variable=completed_job_queue)
     DO_PRAGMA(HLS stream depth=JOBS_TO_SCHEDULE_QUEUE_DEPTH variable=jobs_in_progress); // Force only one job allowed at a time    
 
-    static bool job_info_valid = false;
-    static JOB_COMPLETION_PACKET job_info;
+    bool job_info_valid = false;
+    JOB_COMPLETION_PACKET job_info;
 
     do {
         while (!job_info_valid) {
@@ -205,13 +225,25 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
                 JOB_COMPLETION_PACKET tmp_job_info = jobs_in_progress.read();
                 job_info = tmp_job_info;
                 job_info_valid = true;
+            } 
+            #ifdef CSIM
+            else {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
+            #endif
         }
 
         while (job_info_valid) {
             if (completed_job_queue.full()) {
+                #ifdef CSIM
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                #endif
                 continue;
             }
+
+            #ifdef CSIM
+            bool did_something = false;
+            #endif
 
             bool job_completed = false;
             for (int i = 0; !job_completed && i < CCRF_COMPUTE_UNIT_COUNT; i++) {
@@ -232,7 +264,9 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
                 if (/*!ccrf_status_signals[i].running ||*/ queue_empty) {
                     continue;
                 }
-
+                #ifdef CSIM
+                did_something = true;
+                #endif
                 //const PIXEL_T *const output_addr = CCRF_completed_outputs[i]->read();
                 uintptr_t output_addr = (uintptr_t)nullptr;
                 #ifdef HW_COMPILE
@@ -260,6 +294,12 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
                     job_completed = true;
                 }
             }
+
+            #ifdef CSIM
+            if (!did_something) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            }
+            #endif
         }
 
     } while (1);
@@ -376,11 +416,8 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
          * We only have a relationship between the inputs and outputs of subtasks of the same job
          **/
         bool job_IDs_match = (task_to_check.job_ID == ccrf_job.job_ID);
-        //if (!job_IDs_match) {
-            //return true; // big hammer - don't allow images to be processed in parallel
-        //}
         int ccrf_image_size = ccrf_job.image_size;
-        ASSERT(ccrf_image_size >= 65536, "IMAGE TOO SMALL");
+        //ASSERT(ccrf_image_size >= 65536, "IMAGE TOO SMALL");
         // Past here indicates the 1
         #pragma HLS UNROLL
         for (int i = dependency_count - 1; i >= 0; i--) {
@@ -449,14 +486,19 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
     #pragma HLS STREAM variable=subtask_to_ccrf_queue_6 depth=1
     #endif
     DO_PRAGMA(HLS stream depth=DISPATCHER_STREAM_DEPTH variable=dispatcher_stream_in)
-    static JOB_SUBTASK task_to_add;
-    static bool task_to_add_pending = false; // If we popped the task from the stream but couldn't run it last call
+    JOB_SUBTASK task_to_add;
+    bool task_to_add_pending = false; // If we popped the task from the stream but couldn't run it last call
     
     while (1) {
         if (!task_to_add_pending && !dispatcher_stream_in.empty()) {
             task_to_add = dispatcher_stream_in.read();
             task_to_add_pending = true;
+        } 
+        #ifdef CSIM
+        else if (!task_to_add_pending) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
+        #endif
 
         if (task_to_add_pending) {
             //bool dependence_is_processing = DoesTaskWaitForDependencies(task_to_add, ccrf_compute_units);
