@@ -19,13 +19,13 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
             ///////////////////////////////////////////////////////////////////
             //                  INSERT YOUR CCRF LOGIC HERE                  //
             ///////////////////////////////////////////////////////////////////
-            PIXEL_T *input1 = (PIXEL_T*)status_signals.job_info.input1;
-            PIXEL_T *input2 = (PIXEL_T*)status_signals.job_info.input2;
-            PIXEL_T *output = (PIXEL_T*)status_signals.job_info.output;
+            char *input1 = (char*)(status_signals.job_info.input1);
+            char *input2 = (char*)(status_signals.job_info.input2);
+            char *output = (char*)(status_signals.job_info.output);
             for (int i = 0; i < status_signals.job_info.image_size; i++) {
-                output[i][0] = (BYTE_T)(((uint32_t)input1[i][0] + (uint32_t)input2[i][0]) / 2);
-                output[i][1] = (BYTE_T)(((uint32_t)input1[i][1] + (uint32_t)input2[i][1]) / 2);
-                output[i][2] = (BYTE_T)(((uint32_t)input1[i][2] + (uint32_t)input2[i][2]) / 2);
+                output[i * 3 + 0] = (BYTE_T)(((uint32_t)input1[i * 3 + 0] + (uint32_t)input2[i * 3 + 0]) / 2);
+                output[i* 3 + 1] = (BYTE_T)(((uint32_t)input1[i * 3 + 1] + (uint32_t)input2[i * 3 + 1]) / 2);
+                output[i* 3 + 2] = (BYTE_T)(((uint32_t)input1[i * 3 + 2] + (uint32_t)input2[i * 3 + 2]) / 2);
             }
             ///////////////////////////////////////////////////////////////////
 

@@ -102,7 +102,7 @@ void JobDispatcher::MainDispatcherThreadLoop()
 
                     ASSERT(executing_jobs.front().job_ID == job_status.job_ID, "Got out of order job completion - currently unexpected in the design");
                     executing_jobs.pop();
-                    JOB_COMPLETION_PACKET job_completion_packet({job_status.job_ID, nullptr, -1});
+                    JOB_COMPLETION_PACKET job_completion_packet({job_status.job_ID, (uintptr_t)nullptr, -1});
                     outgoing_finished_job_queue.write(job_completion_packet);
                     active_jobs.erase(job_status.job_ID);
                     accelerator_full = false;

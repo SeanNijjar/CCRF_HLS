@@ -13,8 +13,8 @@
 using namespace hls;
 
 
-PIXEL_T *CCRF_SCRATCHPAD_START_ADDR = (PIXEL_T*)(0x10000000);
-PIXEL_T *CCRF_SCRATCHPAD_END_ADDR = (PIXEL_T*)(0x20000000);
+uintptr_t CCRF_SCRATCHPAD_START_ADDR = (uintptr_t)(0x10000000);
+uintptr_t CCRF_SCRATCHPAD_END_ADDR = (uintptr_t)(0x20000000);
 
 
 
@@ -101,7 +101,7 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
     JOB_ID_T current_job_ID;
     
 
-    PIXEL_T *output_addr = CCRF_SCRATCHPAD_START_ADDR;
+    uintptr_t output_addr = CCRF_SCRATCHPAD_START_ADDR;
     do {
         if (!current_job_valid && !input_jobs.empty()) {
             JobPackage current_job_package = input_jobs.read();
@@ -111,26 +111,26 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
         }
 
         const int ADDR_BUFFER_SIZE = 10;
-        PIXEL_T *input_addresses[ADDR_BUFFER_SIZE];
-        PIXEL_T *output_addresses[ADDR_BUFFER_SIZE];
+        uintptr_t input_addresses[ADDR_BUFFER_SIZE];
+        uintptr_t output_addresses[ADDR_BUFFER_SIZE];
 
         if (current_job_valid) {
             const int image_size = current_job.IMAGE_SIZE();
             const int ldr_image_count = current_job.LDR_IMAGE_COUNT;
             for (int input = 0; input < ldr_image_count; input++) {
-                input_addresses[input] = (PIXEL_T*)current_job.INPUT_IMAGES[input];
+                input_addresses[input] = current_job.INPUT_IMAGES[input];
             }
 
             for (int output = 0; output < ldr_image_count - 1; output++) {
-                if (&output_addr[image_size] >= CCRF_SCRATCHPAD_END_ADDR) {
+                if (output_addr + (image_size * sizeof(PIXEL_T)) >= CCRF_SCRATCHPAD_END_ADDR) {
                     output_addr = CCRF_SCRATCHPAD_START_ADDR;
                 }
                 output_addresses[output] = output_addr;
-                output_addr += image_size;
+                output_addr += image_size * sizeof(PIXEL_T);
             }
 
             while(jobs_in_progress.full());
-            JOB_COMPLETION_PACKET job_completion_packet = {current_job_ID, (PIXEL_T*)current_job.OUTPUT_IMAGE_LOCATION, current_job.IMAGE_SIZE()};
+            JOB_COMPLETION_PACKET job_completion_packet = {current_job_ID, current_job.OUTPUT_IMAGE_LOCATION, current_job.IMAGE_SIZE()};
             jobs_in_progress.write(job_completion_packet);
             for (int layer = 0; layer < ldr_image_count - 1; layer++) {
                 const int num_outputs = ldr_image_count - layer - 1;
@@ -144,12 +144,12 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
                     #endif
 
                     // The final output should go to the actual specified output location, not the scratchpad
-                    PIXEL_T *real_output_addr = (last_task) ? (PIXEL_T*)current_job.OUTPUT_IMAGE_LOCATION : output_addresses[input];
+                    uintptr_t real_output_addr = (last_task) ? current_job.OUTPUT_IMAGE_LOCATION : output_addresses[input];
                     JOB_SUBTASK new_subtask;
-                    new_subtask.input1 = (uintptr_t)input_addresses[input];
-                    new_subtask.input2 = (uintptr_t)input_addresses[input + 1];
-                    new_subtask.output = (uintptr_t)real_output_addr;
-                    ASSERT(&real_output_addr[image_size] < CCRF_SCRATCHPAD_END_ADDR, "Out of range output");
+                    new_subtask.input1 = input_addresses[input];
+                    new_subtask.input2 = input_addresses[input + 1];
+                    new_subtask.output = real_output_addr;
+                    ASSERT(real_output_addr + (image_size * sizeof(PIXEL_T)) < CCRF_SCRATCHPAD_END_ADDR, "Out of range output");
                     new_subtask.image_size = image_size;
                     new_subtask.job_ID = current_job_ID;
                     ASSERT(new_subtask.image_size != 0, "Invalid subtask image_size");
@@ -215,40 +215,45 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
 
             bool job_completed = false;
             for (int i = 0; !job_completed && i < CCRF_COMPUTE_UNIT_COUNT; i++) {
-                //if (CCRF_completed_outputs[i]->empty()) {
-                if (!ccrf_status_signals[i].running || 
-                    !CcrfQueuesBusy<uintptr_t>(i, 
-                    #ifdef HW_COMPILE
-                    completed_subtasks_queue_1,
-                    completed_subtasks_queue_2,
-                    completed_subtasks_queue_3,
-                    completed_subtasks_queue_4,
-                    completed_subtasks_queue_5,
-                    completed_subtasks_queue_6
-                    #else
-                    completed_queues_from_ccrf_units //completed_queues_from_ccrf_units[i].empty()
-                    #endif
-                    )
-                ) {
+                bool queue_empty = false;
+                #ifdef HW_COMPILE
+                switch (i) {
+                    case 0: queue_empty = completed_subtasks_queue_1.empty(); break;
+                    case 1: queue_empty = completed_subtasks_queue_2.empty(); break;
+                    case 2: queue_empty = completed_subtasks_queue_3.empty(); break;
+                    case 3: queue_empty = completed_subtasks_queue_4.empty(); break;
+                    case 4: queue_empty = completed_subtasks_queue_5.empty(); break;
+                    case 5: queue_empty = completed_subtasks_queue_6.empty(); break;
+                    default: assert(false); queue_empty = true; break;
+                };
+                #else
+                queue_empty = completed_queues_from_ccrf_units[i].empty();
+                #endif
+                if (/*!ccrf_status_signals[i].running ||*/ queue_empty) {
                     continue;
                 }
 
                 //const PIXEL_T *const output_addr = CCRF_completed_outputs[i]->read();
-                PIXEL_T * output_addr = nullptr;
+                uintptr_t output_addr = (uintptr_t)nullptr;
                 #ifdef HW_COMPILE
                 switch(i) {
-                    case 0: output_addr = (PIXEL_T*)completed_subtasks_queue_1.read(); break;
-                    case 1: output_addr = (PIXEL_T*)completed_subtasks_queue_2.read(); break;
-                    case 2: output_addr = (PIXEL_T*)completed_subtasks_queue_3.read(); break;
-                    case 3: output_addr = (PIXEL_T*)completed_subtasks_queue_4.read(); break;
-                    case 4: output_addr = (PIXEL_T*)completed_subtasks_queue_5.read(); break;
-                    case 5: output_addr = (PIXEL_T*)completed_subtasks_queue_6.read(); break;
-                    default: assert(false); output_addr = nullptr; break;
+                    case 0: output_addr = completed_subtasks_queue_1.read(); break;
+                    case 1: output_addr = completed_subtasks_queue_2.read(); break;
+                    case 2: output_addr = completed_subtasks_queue_3.read(); break;
+                    case 3: output_addr = completed_subtasks_queue_4.read(); break;
+                    case 4: output_addr = completed_subtasks_queue_5.read(); break;
+                    case 5: output_addr = completed_subtasks_queue_6.read(); break;
+                    default: 
+                        #ifdef CSIM
+                        assert(false); 
+                        #endif
+                        output_addr = (uintptr_t)nullptr; 
+                    break;
                 };
                 #else
-                output_addr = (PIXEL_T*)completed_queues_from_ccrf_units[i].read();
+                output_addr = completed_queues_from_ccrf_units[i].read();
                 #endif
-                job_completed = (output_addr == job_info.output_address);
+                job_completed = (output_addr == (uintptr_t)job_info.output_address);
                 if (job_completed) {
                     completed_job_queue.write(job_info);
                     job_info_valid = false;

@@ -57,7 +57,7 @@ struct JOB_STATUS_MESSAGE
 
 struct JOB_COMPLETION_PACKET {
     JOB_ID_T job_ID;
-    PIXEL_T * output_address;
+    uintptr_t output_address;
     int image_size;
 };
 
