@@ -4,7 +4,7 @@
 #include "job_package.hpp"
 #include "driver.hpp"
 #include "software_driver.hpp"
-#include <unistd.h>
+//#include <unistd.h>
 #include <fcntl.h>
 #include <thread>
 #include <iostream>
@@ -111,7 +111,7 @@ void JobDispatcher::MainDispatcherThreadLoop()
                                              executing_jobs.front().job_descriptor.LDR_IMAGE_COUNT});
 
                     executing_jobs.pop();
-                    JOB_COMPLETION_PACKET job_completion_packet({job_status.job_ID, (uintptr_t)nullptr, -1});
+                    JOB_COMPLETION_PACKET job_completion_packet({(uintptr_t)nullptr, job_status.job_ID, -1});
                     outgoing_finished_job_queue.write(job_completion_packet);
                     active_jobs.erase(job_status.job_ID);
                     accelerator_full = false;

@@ -3,6 +3,8 @@
 #include <cstdint>
 #include <vector>
 
+typedef uint64_t uintptr_t;
+
 typedef unsigned int JOB_ID_T;
 
 typedef uint8_t BYTE_T;
@@ -56,8 +58,8 @@ struct JOB_STATUS_MESSAGE
 };
 
 struct JOB_COMPLETION_PACKET {
-    JOB_ID_T job_ID;
     uintptr_t output_address;
+    JOB_ID_T job_ID;
     int image_size;
 };
 

@@ -16,18 +16,19 @@ using namespace hls;
 uintptr_t CCRF_SCRATCHPAD_START_ADDR = (uintptr_t)(0x10000000);
 uintptr_t CCRF_SCRATCHPAD_END_ADDR = (uintptr_t)(0x20000000);
 
-
-
 void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests, 
                            hls::stream<JOB_STATUS_MESSAGE> &response_message_queue,
                            hls::stream<JobPackage> &jobs_to_schedule_queue,
                            hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_queue)
 {
     DO_PRAGMA(HLS stream depth=RESPONSE_QUEUE_DEPTH variable=response_message_queue)
-    //DO_PRAGMA(HLS stream depth=RESPONSE_QUEUE_DEPTH variable=incoming_job_requests)
     #pragma HLS stream depth=8 variable=incoming_job_requests
     DO_PRAGMA(HLS stream depth=JOBS_TO_SCHEDULE_QUEUE_DEPTH variable=jobs_to_schedule_queue)
     DO_PRAGMA(HLS stream depth=COMPLETED_JOBS_QUEUE_DEPTH variable=completed_jobs_queue)
+    #pragma HLS INTERFACE ap_fifo port=incoming_job_requests
+    #pragma HLS INTERFACE ap_fifo port=response_message_queue
+    #pragma HLS INTERFACE ap_fifo port=jobs_to_schedule_queue
+    #pragma HLS INTERFACE ap_fifo port=completed_jobs_queue
 
     do {
         #ifdef CSIM
@@ -64,47 +65,17 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
         #endif
-    } while (1);
+    } while (0);
 }
 
-void JobResultsNotifier_StaticWrapper(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
-                       hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress,
-                       CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
-#ifdef HW_COMPILE
-                       hls::stream<uintptr_t> &completed_subtasks_queue_1,
-                       hls::stream<uintptr_t> &completed_subtasks_queue_2,
-                       hls::stream<uintptr_t> &completed_subtasks_queue_3,
-                       hls::stream<uintptr_t> &completed_subtasks_queue_4,
-                       hls::stream<uintptr_t> &completed_subtasks_queue_5,
-                       hls::stream<uintptr_t> &completed_subtasks_queue_6
-#else
-                       hls::stream<uintptr_t> completed_queues_from_ccrf_units[CCRF_COMPUTE_UNIT_COUNT]
-#endif
-)
-{
-    #ifdef HW_COMPILE
-    #pragma HLS STREAM variable=completed_subtasks_queue_1 depth=1
-    #pragma HLS STREAM variable=completed_subtasks_queue_2 depth=1
-    #pragma HLS STREAM variable=completed_subtasks_queue_3 depth=1
-    #pragma HLS STREAM variable=completed_subtasks_queue_4 depth=1
-    #pragma HLS STREAM variable=completed_subtasks_queue_5 depth=1
-    #pragma HLS STREAM variable=completed_subtasks_queue_6 depth=1
-    #endif
-
-    JobResultNotifier(completed_job_queue, jobs_in_progress, ccrf_status_signals, 
-    #ifdef HW_COMPILE
-    completed_subtasks_queue_1, completed_subtasks_queue_2, completed_subtasks_queue_3,
-    completed_subtasks_queue_4, completed_subtasks_queue_5, completed_subtasks_queue_6
-    #else
-    completed_queues_from_ccrf_units
-    #endif
-    );
-}
 
 void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs, 
                           hls::stream<JOB_SUBTASK> &subtask_queue, 
                           hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress) 
 {
+    #pragma HLS INTERFACE ap_fifo port=input_jobs
+    #pragma HLS INTERFACE ap_fifo port=subtask_queue
+    #pragma HLS INTERFACE ap_fifo port=jobs_in_progress
     DO_PRAGMA(HLS stream depth=DISPATCHER_STREAM_DEPTH variable=subtask_queue)
     DO_PRAGMA(HLS stream depth=INPUT_JOB_STREAM_DEPTH variable=input_jobs)
     DO_PRAGMA(HLS stream depth=1 variable=jobs_in_progress); // Force only one job allowed at a time
@@ -150,7 +121,7 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
             }
 
             while(jobs_in_progress.full());
-            JOB_COMPLETION_PACKET job_completion_packet = {current_job_ID, current_job.OUTPUT_IMAGE_LOCATION, current_job.IMAGE_SIZE()};
+            JOB_COMPLETION_PACKET job_completion_packet = {current_job.OUTPUT_IMAGE_LOCATION, current_job_ID, current_job.IMAGE_SIZE()};
             jobs_in_progress.write(job_completion_packet);
             for (int layer = 0; layer < ldr_image_count - 1; layer++) {
                 const int num_outputs = ldr_image_count - layer - 1;
@@ -185,13 +156,22 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
 
             current_job_valid = false;
         }
-    } while(1);
+    } while(0);
 }
 
 
 void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
                        hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress, 
-                       CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#ifdef CSIM
+                       CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_COMPUTE_UNIT_COUNT]
+#else
+                       CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_1,
+                       CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_2,
+                       CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_3,
+                       CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_4,
+                       CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_5,
+                       CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_6,
+#endif
 #ifdef HW_COMPILE
                        hls::stream<uintptr_t> &completed_subtasks_queue_1,
                        hls::stream<uintptr_t> &completed_subtasks_queue_2,
@@ -204,7 +184,14 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
 #endif
 )
 {
+    
     #ifdef HW_COMPILE
+    #pragma HLS INTERFACE ap_fifo port=completed_subtasks_queue_1
+    #pragma HLS INTERFACE ap_fifo port=completed_subtasks_queue_2
+    #pragma HLS INTERFACE ap_fifo port=completed_subtasks_queue_3
+    #pragma HLS INTERFACE ap_fifo port=completed_subtasks_queue_4
+    #pragma HLS INTERFACE ap_fifo port=completed_subtasks_queue_5
+    #pragma HLS INTERFACE ap_fifo port=completed_subtasks_queue_6
     #pragma HLS STREAM variable=completed_subtasks_queue_1 depth=1
     #pragma HLS STREAM variable=completed_subtasks_queue_2 depth=1
     #pragma HLS STREAM variable=completed_subtasks_queue_3 depth=1
@@ -302,11 +289,21 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
             #endif
         }
 
-    } while (1);
+    } while (0);
 }
 
 
-int GetAvailableCCRFUnit(CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+int GetAvailableCCRFUnit(
+#ifdef CSIM
+                         CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#else
+                         CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_1,
+                         CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_2,
+                         CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_3,
+                         CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_4,
+                         CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_5,
+                         CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_6,
+#endif
 #ifdef HW_COMPILE
                          hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
                          hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
@@ -319,7 +316,14 @@ int GetAvailableCCRFUnit(CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPU
 #endif
 )
 {
+    
     #ifdef HW_COMPILE
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_1
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_2
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_3
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_4
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_5
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_6
     #pragma HLS STREAM variable=subtask_to_ccrf_queue_1 depth=1
     #pragma HLS STREAM variable=subtask_to_ccrf_queue_2 depth=1
     #pragma HLS STREAM variable=subtask_to_ccrf_queue_3 depth=1
@@ -328,7 +332,20 @@ int GetAvailableCCRFUnit(CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPU
     #pragma HLS STREAM variable=subtask_to_ccrf_queue_6 depth=1
     #endif
     for (int i = 0; i < CCRF_COMPUTE_UNIT_COUNT; i++) {
-        if (!ccrf_status_signals[i].is_processing && 
+        bool is_processing = false;
+        #ifdef CSIM
+        is_processing = ccrf_unit_status_signals[i].is_processing;
+        #else
+        switch(i) {
+            case 0: is_processing = ccrf_unit_status_signals_1.is_processing; break;
+            case 1: is_processing = ccrf_unit_status_signals_2.is_processing; break;
+            case 2: is_processing = ccrf_unit_status_signals_3.is_processing; break;
+            case 3: is_processing = ccrf_unit_status_signals_4.is_processing; break;
+            case 4: is_processing = ccrf_unit_status_signals_5.is_processing; break;
+            case 5: is_processing = ccrf_unit_status_signals_6.is_processing; break;
+        };
+        #endif 
+        if (!is_processing && 
             !CcrfQueuesBusy<JOB_SUBTASK>(i, 
         #ifdef HW_COMPILE
             subtask_to_ccrf_queue_1, subtask_to_ccrf_queue_2, subtask_to_ccrf_queue_3, subtask_to_ccrf_queue_4,
@@ -353,7 +370,16 @@ bool IntervalsOverlap(uintptr_t  interval_1, int interval_1_byte_count, uintptr_
 }
 
 bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check, 
-                                 CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#ifdef CSIM
+                                 CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#else
+                                 CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_1,
+                                 CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_2,
+                                 CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_3,
+                                 CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_4,
+                                 CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_5,
+                                 CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_6,
+#endif
 #ifdef HW_COMPILE
                                  hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
                                  hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
@@ -367,6 +393,12 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
 )                                 
 {
     #ifdef HW_COMPILE 
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_1
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_2
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_3
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_4
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_5
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_6
     #pragma HLS STREAM variable=subtask_to_ccrf_queue_1 depth=1
     #pragma HLS STREAM variable=subtask_to_ccrf_queue_2 depth=1
     #pragma HLS STREAM variable=subtask_to_ccrf_queue_3 depth=1
@@ -393,9 +425,35 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
                 subtask_to_ccrf_queues
             #endif
             );
-        JOB_SUBTASK ccrf_job = ccrf_status_signals[ccrf_unit].job_info;
-        bool is_running = ccrf_status_signals[ccrf_unit].running;
-        bool is_processing = ccrf_status_signals[ccrf_unit].is_processing;
+        JOB_SUBTASK ccrf_job;
+        bool is_running = false;
+        bool is_processing = false;
+        #ifdef CSIM
+        ccrf_job = ccrf_unit_status_signals[ccrf_unit].job_info;
+        is_running = ccrf_status_signals[ccrf_unit].running;
+        is_processing = ccrf_status_signals[ccrf_unit].is_processing;
+        #else
+        switch(ccrf_unit) {
+            case 0: ccrf_job = ccrf_unit_status_signals_1.job_info; 
+                    is_running = ccrf_unit_status_signals_1.running;                    
+                    is_processing = ccrf_unit_status_signals_1.is_processing; break;                         
+            case 1: ccrf_job = ccrf_unit_status_signals_2.job_info; 
+                    is_running = ccrf_unit_status_signals_2.running;
+                    is_processing = ccrf_unit_status_signals_2.is_processing; break;
+            case 2: ccrf_job = ccrf_unit_status_signals_3.job_info; 
+                    is_running = ccrf_unit_status_signals_3.running;
+                    is_processing = ccrf_unit_status_signals_3.is_processing; break;
+            case 3: ccrf_job = ccrf_unit_status_signals_4.job_info; 
+                    is_running = ccrf_unit_status_signals_4.running;
+                    is_processing = ccrf_unit_status_signals_4.is_processing; break;
+            case 4: ccrf_job = ccrf_unit_status_signals_5.job_info; 
+                    is_running = ccrf_unit_status_signals_5.running;
+                    is_processing = ccrf_unit_status_signals_5.is_processing;  break;
+            case 5: ccrf_job = ccrf_unit_status_signals_6.job_info; 
+                    is_running = ccrf_unit_status_signals_6.running;
+                    is_processing = ccrf_unit_status_signals_6.is_processing; break;
+        };
+        #endif
         bool is_idle = (!queue_busy && !is_processing) && is_running;
         if (is_idle) { //ccrf_status_signals[ccrf_unit].is_idle()) {
             // since the unit is idle, it can't be processing dependencies for the task
@@ -462,9 +520,17 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
 }
 
 
-//template <typename CCRF_TYPE>
 void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in, 
-                           CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#ifdef CSIM
+                           CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+#else
+                           CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_1,
+                           CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_2,
+                           CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_3,
+                           CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_4,
+                           CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_5,
+                           CCRF_UNIT_STATUS_SIGNALS &ccrf_unit_status_signals_6,
+#endif
 #ifdef HW_COMPILE                           
                            hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
                            hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
@@ -478,6 +544,14 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
 )                          
 {
     #ifdef HW_COMPILE
+    #pragma HLS INTERFACE ap_fifo port=dispatcher_stream_in
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_1
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_2
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_3
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_4
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_5
+    #pragma HLS INTERFACE ap_fifo port=subtask_to_ccrf_queue_6
+
     #pragma HLS STREAM variable=subtask_to_ccrf_queue_1 depth=1
     #pragma HLS STREAM variable=subtask_to_ccrf_queue_2 depth=1
     #pragma HLS STREAM variable=subtask_to_ccrf_queue_3 depth=1
@@ -489,7 +563,7 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
     JOB_SUBTASK task_to_add;
     bool task_to_add_pending = false; // If we popped the task from the stream but couldn't run it last call
     
-    while (1) {
+    do {
         if (!task_to_add_pending && !dispatcher_stream_in.empty()) {
             task_to_add = dispatcher_stream_in.read();
             task_to_add_pending = true;
@@ -503,7 +577,17 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
         if (task_to_add_pending) {
             //bool dependence_is_processing = DoesTaskWaitForDependencies(task_to_add, ccrf_compute_units);
             
-            bool dependence_is_processing = DoesTaskWaitForDependencies(task_to_add, ccrf_status_signals, 
+            bool dependence_is_processing = DoesTaskWaitForDependencies(task_to_add, 
+            #ifdef CSIM
+                                                ccrf_unit_status_signals,
+            #else
+                                                ccrf_unit_status_signals_1,
+                                                ccrf_unit_status_signals_2,
+                                                ccrf_unit_status_signals_3,
+                                                ccrf_unit_status_signals_4,
+                                                ccrf_unit_status_signals_5,
+                                                ccrf_unit_status_signals_6,
+            #endif 
             #ifdef HW_COMPILE
                                                 subtask_to_ccrf_queue_1, subtask_to_ccrf_queue_2, subtask_to_ccrf_queue_3, 
                                                 subtask_to_ccrf_queue_4, subtask_to_ccrf_queue_5, subtask_to_ccrf_queue_6
@@ -517,7 +601,17 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
 
             //int available_ccrf_unit = GetAvailableCCRFUnit(ccrf_compute_units);
             
-            int available_ccrf_unit = GetAvailableCCRFUnit(ccrf_status_signals, 
+            int available_ccrf_unit = GetAvailableCCRFUnit(
+            #ifdef CSIM
+                                                ccrf_unit_status_signals,
+            #else
+                                                ccrf_unit_status_signals_1,
+                                                ccrf_unit_status_signals_2,
+                                                ccrf_unit_status_signals_3,
+                                                ccrf_unit_status_signals_4,
+                                                ccrf_unit_status_signals_5,
+                                                ccrf_unit_status_signals_6,
+            #endif  
             #ifdef HW_COMPILE
                                         subtask_to_ccrf_queue_1, subtask_to_ccrf_queue_2, subtask_to_ccrf_queue_3, 
                                         subtask_to_ccrf_queue_4, subtask_to_ccrf_queue_5, subtask_to_ccrf_queue_6
@@ -554,42 +648,7 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
                 task_to_add.image_size = 0;
             }
         }
-    }
-}
-
-
-void CcrfSubtaskDispatcher_StaticWrapper(hls::stream<JOB_SUBTASK> &dispatcher_stream_in, 
-                                         CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
-#ifdef HW_COMPILE
-                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_1,
-                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_2,
-                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_3,
-                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_4,
-                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_5,
-                                         hls::stream<JOB_SUBTASK> &subtask_to_ccrf_queue_6
-#else
-                                         hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
-#endif 
-)
-{
-    #ifdef HW_COMPILE
-    #pragma HLS STREAM variable=subtask_to_ccrf_queue_1 depth=1
-    #pragma HLS STREAM variable=subtask_to_ccrf_queue_2 depth=1
-    #pragma HLS STREAM variable=subtask_to_ccrf_queue_3 depth=1
-    #pragma HLS STREAM variable=subtask_to_ccrf_queue_4 depth=1
-    #pragma HLS STREAM variable=subtask_to_ccrf_queue_5 depth=1
-    #pragma HLS STREAM variable=subtask_to_ccrf_queue_6 depth=1
-    #endif
-    
-    CcrfSubtaskDispatcher(dispatcher_stream_in, ccrf_status_signals, 
-    #ifdef HW_COMPILE
-    subtask_to_ccrf_queue_1, subtask_to_ccrf_queue_2,
-    subtask_to_ccrf_queue_3, subtask_to_ccrf_queue_4,
-    subtask_to_ccrf_queue_5, subtask_to_ccrf_queue_6
-    #else
-    subtask_to_ccrf_queues
-    #endif
-    );
+    } while (0);
 }
 
 
@@ -597,28 +656,35 @@ void CcrfSubtaskDispatcher_StaticWrapper(hls::stream<JOB_SUBTASK> &dispatcher_st
 void CcrfWrapper(hls::stream<JobPackage> incoming_job_requests, 
                  hls::stream<JOB_STATUS_MESSAGE> response_message_queue)
 {
-    #pragma HLS INTERFACE axis register both port=incoming_job_requests
-    #pragma HLS INTERFACE axis register both port=response_message_queue
+    #pragma HLS INTERFACE ap_fifo port=incoming_job_requests
+    #pragma HLS INTERFACE ap_fifo port=response_message_queue
     
-    hls::stream<JobPackage> jobs_to_schedule_queue;
-    hls::stream<JOB_COMPLETION_PACKET> completed_jobs_queue;
-    hls::stream<JOB_COMPLETION_PACKET> jobs_in_progress;
-    hls::stream<JOB_SUBTASK> subtask_queue;
-    //hls::stream<uintptr_t> ccrf_output_queues[CCRF_COMPUTE_UNIT_COUNT];
-    //hls::stream<JOB_SUBTASK> ccrf_input_queues[CCRF_COMPUTE_UNIT_COUNT];
-    CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_COMPUTE_UNIT_COUNT];
-    hls::stream<uintptr_t> ccrf_output_queues_1;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_1;
-    hls::stream<uintptr_t> ccrf_output_queues_2;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_2;
-    hls::stream<uintptr_t> ccrf_output_queues_3;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_3;
-    hls::stream<uintptr_t> ccrf_output_queues_4;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_4;
-    hls::stream<uintptr_t> ccrf_output_queues_5;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_5;
-    hls::stream<uintptr_t> ccrf_output_queues_6;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_6;
+    static hls::stream<JobPackage> jobs_to_schedule_queue;
+    static hls::stream<JOB_COMPLETION_PACKET> completed_jobs_queue;
+    static hls::stream<JOB_COMPLETION_PACKET> jobs_in_progress;
+    static hls::stream<JOB_SUBTASK> subtask_queue;
+    #ifdef CSIM
+    static CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_COMPUTE_UNIT_COUNT];
+    #else
+    static CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals_1;
+    static CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals_2;
+    static CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals_3;
+    static CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals_4;
+    static CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals_5;
+    static CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals_6;
+    #endif
+    static hls::stream<uintptr_t> ccrf_output_queues_1;
+    static hls::stream<JOB_SUBTASK> ccrf_input_queues_1;
+    static hls::stream<uintptr_t> ccrf_output_queues_2;
+    static hls::stream<JOB_SUBTASK> ccrf_input_queues_2;
+    static hls::stream<uintptr_t> ccrf_output_queues_3;
+    static hls::stream<JOB_SUBTASK> ccrf_input_queues_3;
+    static hls::stream<uintptr_t> ccrf_output_queues_4;
+    static hls::stream<JOB_SUBTASK> ccrf_input_queues_4;
+    static hls::stream<uintptr_t> ccrf_output_queues_5;
+    static hls::stream<JOB_SUBTASK> ccrf_input_queues_5;
+    static hls::stream<uintptr_t> ccrf_output_queues_6;
+    static hls::stream<JOB_SUBTASK> ccrf_input_queues_6;
 
     #pragma HLS STREAM variable=ccrf_output_queues_1 depth=1
     #pragma HLS STREAM variable=ccrf_input_queues_1 depth=1
@@ -637,62 +703,83 @@ void CcrfWrapper(hls::stream<JobPackage> incoming_job_requests,
     #pragma HLS STREAM variable=jobs_in_progress depth=4
     #pragma HLS STREAM variable=subtask_queue depth=32
 
+    while(1) {
+    #pragma HLS DATAFLOW
+    CcrfSchedulerTopLevel(incoming_job_requests, 
+                          response_message_queue,
+                          jobs_to_schedule_queue,
+                          completed_jobs_queue);
 
-    CcrfSchedulerTopLevel(std::ref(incoming_job_requests), 
-                          std::ref(response_message_queue),
-                          std::ref(jobs_to_schedule_queue),
-                          std::ref(completed_jobs_queue));
-
-    JobResultNotifier(std::ref(completed_jobs_queue), 
-                      std::ref(jobs_in_progress), 
-                      std::ref(ccrf_unit_status_signals),
-                      std::ref(ccrf_output_queues_1),
-                      std::ref(ccrf_output_queues_2),
-                      std::ref(ccrf_output_queues_3),
-                      std::ref(ccrf_output_queues_4),
-                      std::ref(ccrf_output_queues_5),
-                      std::ref(ccrf_output_queues_6)
+    JobResultNotifier(completed_jobs_queue, 
+                      jobs_in_progress, 
+                      #ifdef CSIM
+                      ccrf_unit_status_signals,
+                      #else
+                      ccrf_unit_status_signals_1,
+                      ccrf_unit_status_signals_2,
+                      ccrf_unit_status_signals_3,
+                      ccrf_unit_status_signals_4,
+                      ccrf_unit_status_signals_5,
+                      ccrf_unit_status_signals_6,
+                      #endif
+                      ccrf_output_queues_1,
+                      ccrf_output_queues_2,
+                      ccrf_output_queues_3,
+                      ccrf_output_queues_4,
+                      ccrf_output_queues_5,
+                      ccrf_output_queues_6
                       );
 
-    CcrfSubtaskScheduler(std::ref(jobs_to_schedule_queue), 
-                         std::ref(subtask_queue), 
-                         std::ref(jobs_in_progress));
+    CcrfSubtaskScheduler(jobs_to_schedule_queue, 
+                         subtask_queue, 
+                         jobs_in_progress);
 
-    CcrfSubtaskDispatcher(std::ref(subtask_queue),
-                          std::ref(ccrf_unit_status_signals),
-                          std::ref(ccrf_input_queues_1),
-                          std::ref(ccrf_input_queues_2),
-                          std::ref(ccrf_input_queues_3),
-                          std::ref(ccrf_input_queues_4),
-                          std::ref(ccrf_input_queues_5),
-                          std::ref(ccrf_input_queues_6)
+    CcrfSubtaskDispatcher(subtask_queue,
+                          #ifdef CSIM
+                          ccrf_unit_status_signals,
+                          #else
+                          ccrf_unit_status_signals_1,
+                          ccrf_unit_status_signals_2,
+                          ccrf_unit_status_signals_3,
+                          ccrf_unit_status_signals_4,
+                          ccrf_unit_status_signals_5,
+                          ccrf_unit_status_signals_6,
+                          #endif
+                          ccrf_input_queues_1,
+                          ccrf_input_queues_2,
+                          ccrf_input_queues_3,
+                          ccrf_input_queues_4,
+                          ccrf_input_queues_5,
+                          ccrf_input_queues_6
                           );
 
     /*
     #pragma HLS UNROLL
     for (int i = 0; i < CCRF_COMPUTE_UNIT_COUNT; i++) {
-        Run_CCRF(std::ref(ccrf_unit_status_signals[i]),
-                std::ref(ccrf_input_queues[i]),
-                std::ref(ccrf_output_queues[i]));
+        #pragma HLS DATAFLOW
+        Run_CCRF(ccrf_unit_status_signals[i],
+                ccrf_input_queues[i],
+                ccrf_output_queues[i]);
     }
     */
-    Run_CCRF(std::ref(ccrf_unit_status_signals[0]),
-                std::ref(ccrf_input_queues_1),
-                std::ref(ccrf_output_queues_1));
-    Run_CCRF(std::ref(ccrf_unit_status_signals[1]),
-                std::ref(ccrf_input_queues_2),
-                std::ref(ccrf_output_queues_2));
-    Run_CCRF(std::ref(ccrf_unit_status_signals[2]),
-                std::ref(ccrf_input_queues_3),
-                std::ref(ccrf_output_queues_3));
-    Run_CCRF(std::ref(ccrf_unit_status_signals[3]),
-                std::ref(ccrf_input_queues_4),
-                std::ref(ccrf_output_queues_4));
-    Run_CCRF(std::ref(ccrf_unit_status_signals[4]),
-                std::ref(ccrf_input_queues_5),
-                std::ref(ccrf_output_queues_5));
-    Run_CCRF(std::ref(ccrf_unit_status_signals[5]),
-                std::ref(ccrf_input_queues_6),
-                std::ref(ccrf_output_queues_6));
+    Run_CCRF(ccrf_unit_status_signals_1,
+                ccrf_input_queues_1,
+                ccrf_output_queues_1);
+    Run_CCRF(ccrf_unit_status_signals_2,
+                ccrf_input_queues_2,
+                ccrf_output_queues_2);
+    Run_CCRF(ccrf_unit_status_signals_3,
+                ccrf_input_queues_3,
+                ccrf_output_queues_3);
+    Run_CCRF(ccrf_unit_status_signals_4,
+                ccrf_input_queues_4,
+                ccrf_output_queues_4);
+    Run_CCRF(ccrf_unit_status_signals_5,
+                ccrf_input_queues_5,
+                ccrf_output_queues_5);
+    Run_CCRF(ccrf_unit_status_signals_6,
+                ccrf_input_queues_6,
+                ccrf_output_queues_6);
+    }
 }
 #endif
