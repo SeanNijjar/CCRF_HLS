@@ -161,11 +161,6 @@ void JobDispatcher::DispatchJob(const JobDescriptor *const job_descriptor)
 }
 
 
-auto JobDispatcher::GetTotalJobExecutionTime(const JOB_ID_T) const 
-{
-    UNIMPLEMENTED();
-}
-
 void JobDispatcher::PrintJobResultStats() 
 {
     const int num_jobs = finished_jobs.size();

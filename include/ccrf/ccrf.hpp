@@ -21,7 +21,8 @@ struct CCRF_UNIT_STATUS_SIGNALS
 
 void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals, 
               hls::stream<JOB_SUBTASK> &input_subtask_queue, 
-              hls::stream<uintptr_t> &output_subtask_queue);
+              hls::stream<uintptr_t> &output_subtask_queue,
+              BYTE_T *const memory_bus);
 
 
 

@@ -52,13 +52,10 @@ class SoftwareTestDriver : public Driver
         }
     }
 
-    std::thread ccrf_top_level_scheduler_thread;
-    std::thread job_result_notifier_thread;
-    std::thread ccrf_task_scheduler_thread;
-    std::thread ccrf_dispatcher_thread;
 
-    std::thread ccrf_threads[CCRF_COMPUTE_UNIT_COUNT];
-
+    std::thread ccrf_wrapper_csim_thread;
+    
+    void RunCcrfCsim();
 
     // CCRF Engine Queues
     //hls::stream<JobPackage> incoming_job_request_queue; // 1  incoming_job_request_queue
@@ -69,23 +66,8 @@ class SoftwareTestDriver : public Driver
     hls::stream<JOB_COMPLETION_PACKET> completed_job_from_completion_module_queue; // 6
 
     //std::vector<SoftwareDummyCCRF> ccrf_compute_units;
-    #ifdef HW_COMPILE
-    hls::stream<uintptr_t> ccrf_output_queues_1;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_1;
-    hls::stream<uintptr_t> ccrf_output_queues_2;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_2;
-    hls::stream<uintptr_t> ccrf_output_queues_3;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_3;
-    hls::stream<uintptr_t> ccrf_output_queues_4;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_4;
-    hls::stream<uintptr_t> ccrf_output_queues_5;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_5;
-    hls::stream<uintptr_t> ccrf_output_queues_6;
-    hls::stream<JOB_SUBTASK> ccrf_input_queues_6;
-    #else
     hls::stream<uintptr_t> ccrf_output_queues[CCRF_COMPUTE_UNIT_COUNT];
     hls::stream<JOB_SUBTASK> ccrf_input_queues[CCRF_COMPUTE_UNIT_COUNT];
-    #endif
     CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_COMPUTE_UNIT_COUNT];
     //SoftwareDummyCCRF ccrf_compute_units[CCRF_COMPUTE_UNIT_COUNT];
 

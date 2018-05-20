@@ -68,8 +68,6 @@ class JobDispatcher
     ~JobDispatcher();
     
 
-    auto GetTotalJobExecutionTime(const JOB_ID_T) const;
-
     /* Halts execution of the caller thread until the job queue is empty*/
     void SynchronizeWait();
 

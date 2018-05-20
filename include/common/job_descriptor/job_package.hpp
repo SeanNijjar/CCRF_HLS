@@ -46,7 +46,7 @@ struct JobPackage
 
         for (int i = 0; i < num_images; i++) {
             copied_job_descriptor->INPUT_IMAGES[i] = (uintptr_t)((BYTE_T*)copied_job_descriptor + current_byte_offset);
-            ASSERT(((unsigned long)copied_job_descriptor->INPUT_IMAGES[i] % alignof(job_descriptor)) == 0, "Misaligned consolidated image data");
+            //ASSERT(((unsigned long)copied_job_descriptor->INPUT_IMAGES[i] % alignof(job_descriptor)) == 0, "Misaligned consolidated image data");
             //for (unsigned long byte = 0; byte < image_size * sizeof(PIXEL_T); byte++) {
             //    BYTE_T *dest = (BYTE_T*)copied_job_descriptor->INPUT_IMAGES[i] + byte;
             //    BYTE_T *src = (BYTE_T*)job_descriptor->INPUT_IMAGES[i] + byte;
