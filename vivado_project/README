@@ -1,0 +1,6 @@
+MPSOC_axidma is a axi dma example,
+it has a axi stream loopback datapath.
+To insert our own hls core, we just need to replace the axi-steam fifo with our own IP core.
+
+To use the axi dma driver in the linux user level, please first login to the ubuntu on MPSOC.
+then the example could be find in "~/xilinx_axidma/examples"
