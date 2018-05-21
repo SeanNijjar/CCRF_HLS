@@ -19,10 +19,8 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
     #pragma HLS stream depth=8 variable=incoming_job_requests
     DO_PRAGMA(HLS stream depth=JOBS_TO_SCHEDULE_QUEUE_DEPTH variable=jobs_to_schedule_queue)
     DO_PRAGMA(HLS stream depth=COMPLETED_JOBS_QUEUE_DEPTH variable=completed_jobs_queue)
-    #pragma HLS INTERFACE ap_fifo port=incoming_job_requests
-    #pragma HLS INTERFACE ap_fifo port=response_message_queue
-    #pragma HLS INTERFACE ap_fifo port=jobs_to_schedule_queue
-    #pragma HLS INTERFACE ap_fifo port=completed_jobs_queue
+    //#pragma HLS INTERFACE ap_fifo port=incoming_job_requests
+    //#pragma HLS INTERFACE ap_fifo port=response_message_queue
 
     do {
         if(!completed_jobs_queue.empty()) {
@@ -138,7 +136,8 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
 {
     #pragma HLS STREAM variable=completed_queues_from_ccrf_units depth=1
     DO_PRAGMA(HLS stream depth=COMPLETED_JOBS_QUEUE_DEPTH variable=completed_job_queue)
-    DO_PRAGMA(HLS stream depth=JOBS_TO_SCHEDULE_QUEUE_DEPTH variable=jobs_in_progress); // Force only one job allowed at a time    
+    DO_PRAGMA(HLS stream depth=JOBS_TO_SCHEDULE_QUEUE_DEPTH variable=jobs_in_progress); // Force only one job allowed at a time
+
 
     static bool job_info_valid = false;
     static JOB_COMPLETION_PACKET job_info;
@@ -344,13 +343,18 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
 
 
 void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests, 
-                 hls::stream<JOB_STATUS_MESSAGE> &response_message_queue,
-                 BYTE_T *const memory_bus)
+                 hls::stream<JOB_STATUS_MESSAGE> &response_message_queue)
+//,                 BYTE_T *const memory_bus)
 {
-    #pragma HLS INTERFACE ap_memory port=memory_bus depth=2147483648
-    #pragma HLS INTERFACE ap_fifo port=incoming_job_requests
-    #pragma HLS INTERFACE ap_fifo port=response_message_queue
-    
+    //#pragma HLS INTERFACE m_axi port=memory_bus depth=2147483648 offset=slave
+    //#pragma HLS INTERFACE axis port=incoming_job_requests offset=slave
+    //#pragma HLS INTERFACE axis port=response_message_queue
+
+	#pragma HLS RESOURCE core=axis variable=response_message_queue
+	#pragma HLS RESOURCE core=axis variable=incoming_job_requests
+	#pragma HLS DATA_PACK variable=incoming_job_requests struct_level
+	#pragma HLS DATA_PACK variable=response_message_queue struct_level
+
     static hls::stream<JobPackage> jobs_to_schedule_queue;
     static hls::stream<JOB_COMPLETION_PACKET> completed_jobs_queue;
     static hls::stream<JOB_COMPLETION_PACKET> jobs_in_progress;
@@ -358,7 +362,7 @@ void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
     static CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_COMPUTE_UNIT_COUNT];
     static hls::stream<uintptr_t> ccrf_output_queues[CCRF_COMPUTE_UNIT_COUNT];
     static hls::stream<JOB_SUBTASK> ccrf_input_queues[CCRF_COMPUTE_UNIT_COUNT];
-
+	#pragma HLS DATA_PACK variable=jobs_to_schedule_queue struct_level
 
     #pragma HLS STREAM variable ccrf_input_queues depth=1
     #pragma HLS STREAM variable ccrf_output_queues depth=1
@@ -408,8 +412,9 @@ void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
         #pragma HLS ARRAY_PARTITION variable=ccrf_unit_status_signals
         Run_CCRF(ccrf_unit_status_signals[i],
                 ccrf_input_queues[i],
-                ccrf_output_queues[i],
-                memory_bus);
+                ccrf_output_queues[i]
+				//,memory_bus
+        		);
     }
    // }
 }

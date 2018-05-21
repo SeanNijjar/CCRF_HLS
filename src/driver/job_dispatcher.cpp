@@ -3,7 +3,10 @@
 #include "job_descriptor.hpp"
 #include "job_package.hpp"
 #include "driver.hpp"
+
+#ifndef ZYNQ_COMPILE
 #include "software_driver.hpp"
+#endif
 //#include <unistd.h>
 #include <fcntl.h>
 #include <thread>
@@ -14,10 +17,13 @@ JobDispatcher::JobDispatcher(E_DISPATCH_MODE _dispatch_mode) :
     dispatch_mode(_dispatch_mode),
     accelerator_full(false),
     dispatch_request_in_flight(false),
-    driver(outgoing_job_queue, incoming_job_status_queue, 5)
+    driver(outgoing_job_queue, incoming_job_status_queue
+    #ifndef ZYNQ_COMPILE
+    , 5
+    #endif
+    )
 {
     ASSERT(_dispatch_mode == DISPATCH_MODE_EXCLUSIVE_BLOCKING, "Created job dispatched in non-exclusive mode. Only DISPATCH_MODE_EXCLUSIVE is currently supported");
-    
 }
 
 JobDispatcher::~JobDispatcher()
@@ -47,13 +53,37 @@ bool JobDispatcher::TryDispatchJob()
     // before submitting more work.
     if (pending_jobs.size()) {
         if (!accelerator_full && !dispatch_request_in_flight) {
+            #ifdef ZYNQ_COMPILE
+            driver.SendJobRequest(pending_jobs.front());
+            #else
             outgoing_job_queue.write(pending_jobs.front());
             dispatch_request_in_flight = true;
             return true;
+            #endif
         }
     }
 
     return false;
+}
+
+bool JobDispatcher::JobResponseQueueHasData()
+{
+    #ifdef ZYNQ_COMPILE
+    return driver.ResponseQueueHasData(sizeof(JOB_STATUS_MESSAGE));
+    #else
+    return !incoming_job_status_queue.empty();
+    #endif
+}
+
+JOB_STATUS_MESSAGE JobDispatcher::ReadJobStatusMessage()
+{
+    #ifdef ZYNQ_COMPILE
+    JOB_STATUS_MESSAGE response_message;
+    driver.ReadResponseQueuePacket((uint8_t*)&response_message, sizeof(JOB_STATUS_MESSAGE));
+    return response_message;
+    #else
+    return incoming_job_status_queue.read();
+    #endif
 }
 
 void JobDispatcher::MainDispatcherThreadLoop()
@@ -71,7 +101,7 @@ void JobDispatcher::MainDispatcherThreadLoop()
             //new_job_package.job_ID = GenerateNewJobID();
             //
             JOB_ID_T new_job_ID = GenerateNewJobID();
-            pending_jobs.push({new_job_ID, incoming_job_queue.read()});
+            pending_jobs.push({incoming_job_queue.read(), new_job_ID});
             active_jobs.insert(new_job_ID);
             job_start_times[new_job_ID] = std::chrono::high_resolution_clock::now();
             did_something_this_iteration = true;
@@ -79,9 +109,9 @@ void JobDispatcher::MainDispatcherThreadLoop()
 
         did_something_this_iteration = did_something_this_iteration || TryDispatchJob();
 
-        if (!incoming_job_status_queue.empty()) {
+        if (JobResponseQueueHasData()) {
             // Remove the job from the set of active jobs
-            JOB_STATUS_MESSAGE job_status = incoming_job_status_queue.read();
+            JOB_STATUS_MESSAGE job_status = ReadJobStatusMessage();
 
             switch (job_status.packet_message_type) {
                 case JOB_STATUS_MESSAGE::JOB_ACCEPT_PACKET: {
@@ -133,13 +163,17 @@ void JobDispatcher::MainDispatcherThreadLoop()
 
 void JobDispatcher::StartDispatcher()
 {
+    #ifndef ZYNQ_COMPILE
     driver_thread = std::thread(&JobDispatcher::MainDispatcherThreadLoop, this);
     driver.Start();
+    #endif
 }
 
 void JobDispatcher::StopDispatcher()
 {
+    #ifndef ZYNQ_COMPILE
     driver_thread.join();
+    #endif
 }
 
 void JobDispatcher::SynchronizeWait()

@@ -2,10 +2,10 @@
 
 void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals, 
               hls::stream<JOB_SUBTASK> &input_subtask_queue, 
-              hls::stream<uintptr_t> &output_subtask_queue,
-              BYTE_T *const memory_bus) 
+              hls::stream<uintptr_t> &output_subtask_queue)
+//,              BYTE_T *const memory_bus)
 {
-    #pragma HLS INTERFACE axis port=memory_bus depth=2147483648 offset=slave
+    //#pragma HLS INTERFACE m_axi port=memory_bus depth=2147483648 offset=slave
     #pragma HLS STREAM variable=input_subtask_queue depth=1
     #pragma HLS STREAM variable=output_subtask_queue depth=1
     do {
@@ -18,7 +18,7 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
             ///////////////////////////////////////////////////////////////////
             //                  INSERT YOUR CCRF LOGIC HERE                  //
             ///////////////////////////////////////////////////////////////////
-            
+            /*
             BYTE_T * input1 = &memory_bus[status_signals.job_info.input1];
             BYTE_T * input2 = &memory_bus[status_signals.job_info.input2];
             BYTE_T * output = &memory_bus[status_signals.job_info.output];
@@ -30,6 +30,7 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
                 output[i* 3 + 1] = ((uint32_t)input1[i * 3 + 1] + (uint32_t)input2[i * 3 + 1]) / 2;
                 output[i* 3 + 2] = ((uint32_t)input1[i * 3 + 2] + (uint32_t)input2[i * 3 + 2]) / 2;
             }
+            */
             
             ///////////////////////////////////////////////////////////////////
 

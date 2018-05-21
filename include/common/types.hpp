@@ -3,9 +3,9 @@
 #include <cstdint>
 #include <vector>
 
-typedef uint64_t uintptr_t;
+//typedef uint64_t uintptr_t;
 
-typedef unsigned int JOB_ID_T;
+typedef uint8_t JOB_ID_T;
 
 typedef uint8_t BYTE_T;
 
@@ -53,7 +53,7 @@ struct JOB_STATUS_MESSAGE
         JOB_DONE_PACKET
     };
 
-    char packet_message_type;
+    uint8_t packet_message_type;
     JOB_ID_T job_ID;
 };
 

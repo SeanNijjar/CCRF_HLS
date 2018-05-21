@@ -32,6 +32,7 @@
                 "${workspaceFolder}/include/ccrf/",
                 "${workspaceFolder}/include/common/",
                 "${workspaceFolder}/include/common/job_descriptor/",
+                "${workspaceFolder}/include/common/dma/",
                 "${workspaceFolder}/include/scheduler/",
                 "/usr/include/x86_64-linux-gnu/c++/5",
                 "/usr/include/c++/5/backward",

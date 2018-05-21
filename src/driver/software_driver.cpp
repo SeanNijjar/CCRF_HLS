@@ -16,8 +16,10 @@ void SoftwareTestDriver::SendJobLaunchRequest(JobPackage job_request)
 void SoftwareTestDriver::RunCcrfCsim() 
 {
     while(1) {
-        CcrfWrapper(std::ref(incoming_job_request_queue), std::ref(outgoing_job_response_queue),
+        CcrfWrapper(std::ref(incoming_job_request_queue), std::ref(outgoing_job_response_queue));
+        /*,
         (BYTE_T *const)nullptr);// Treat uintptrs as raw pointers (not address offsets) May need to change this in the future
+        */
     }
 }
 

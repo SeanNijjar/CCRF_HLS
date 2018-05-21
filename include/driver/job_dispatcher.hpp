@@ -1,5 +1,9 @@
 #include "job_descriptor.hpp"
+#ifdef ZYNQ_COMPILE
+#include "driver.hpp"
+#else
 #include "software_driver.hpp"
+#endif
 
 #include <chrono>
 #include <vector>
@@ -30,9 +34,7 @@ struct FINISHED_JOB_RECORD
  **/
 class JobDispatcher
 {
-
   public:
-
     enum E_DISPATCH_MODE
     {
         DISPATCH_MODE_FIRST = 0,
@@ -88,6 +90,12 @@ class JobDispatcher
     void PrintJobResultStats(void);
 
   private:
+    bool JobResponseQueueHasData();
+
+    JOB_STATUS_MESSAGE ReadJobStatusMessage();
+
+    bool IncomingJobResponseQueueHasData();
+
     bool TryDispatchJob();
 
     void MainDispatcherThreadLoop();
@@ -134,7 +142,11 @@ class JobDispatcher
 
     std::thread driver_thread;
 
+    #ifdef ZYNQ_COMPILE
+    ZynqHardwareDriver driver;
+    #else
     SoftwareTestDriver driver;    
+    #endif
 };
 
 

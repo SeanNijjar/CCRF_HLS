@@ -11,15 +11,13 @@
 
 struct JobDescriptor 
 {
-    
-    int LDR_IMAGE_COUNT;   // Number of LDR images that correspond to the single output HDR frame
-    int IMAGE_WIDTH;
-    int IMAGE_HEIGHT;
     //PIXEL_T *OUTPUT_IMAGE_LOCATION;   // Where to dump the HDR image
     //PIXEL_T *INPUT_IMAGES[10];   // The memory locations of the input images // Harcode to 10 max for now to make transmission in FPGA easier
     uintptr_t OUTPUT_IMAGE_LOCATION;
-    uintptr_t INPUT_IMAGES[10];
-
+    uintptr_t INPUT_IMAGES[6];
+	uint16_t IMAGE_WIDTH;
+	uint16_t IMAGE_HEIGHT;
+    uint8_t LDR_IMAGE_COUNT;   // Number of LDR images that correspond to the single output HDR frame
 
     int IMAGE_SIZE() const
     {

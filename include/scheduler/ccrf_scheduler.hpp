@@ -76,7 +76,8 @@ void CcrfSubtaskDispatcher_StaticWrapper(hls::stream<JOB_SUBTASK> &dispatcher_st
 );
 
 void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests, 
-                 hls::stream<JOB_STATUS_MESSAGE> &response_message_queue,
-                 BYTE_T *const memory_bus);
+                 hls::stream<JOB_STATUS_MESSAGE> &response_message_queue
+                 //,BYTE_T *const memory_bus
+                 );
 
 #endif

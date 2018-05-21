@@ -41,5 +41,6 @@
         "iostream": "cpp",
         "set": "cpp",
         "string": "cpp"
-    }
+    },
+    "C_Cpp.dimInactiveRegions": false
 }
