@@ -3,7 +3,6 @@
 #include "job_dispatcher.hpp"
 #include "job_descriptor.hpp"
 #include "job_package.hpp"
-#include "software_driver.hpp"
 
 #include <string>
 #include <vector>
@@ -13,7 +12,6 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
-#include "ccrf_scheduler.hpp"
 
 int main(int argc, char *argv[]) 
 {
@@ -27,18 +25,22 @@ int main(int argc, char *argv[])
 
     // Read in the test image sets
     const char *starting_pwd = get_current_dir_name();
-    assert(chdir(root_dir.c_str()) == 0);
+    int rc = chdir(root_dir.c_str());
+    assert(rc == 0);
     std::vector<IMAGE_STACK_T> image_stacks;
-    for (int i = 1; i < argc; i++) {
-        std::string file_list_path(argv[i]);
-        auto file_contents = ReadFileContents(file_list_path);
-        for (auto file : file_contents) {
-            assert(chdir(std::string(root_dir).append(file).c_str()) == 0);
-            image_stacks.push_back(ReadImageStackImages("file_list"));
-            assert(chdir(root_dir.c_str()) == 0);
-        }
+    std::string file_list_path(argv[1]);
+    file_list_path.append(argv[2]);
+    auto file_contents = ReadFileContents(file_list_path);
+    for (auto file : file_contents) {
+        std::string image_dir = root_dir + file;
+        rc = chdir(image_dir.c_str());
+        assert(rc == 0);
+        image_stacks.push_back(ReadImageStackImages("file_list"));
+        rc = chdir(root_dir.c_str());
+        assert(rc == 0);
     }
-    assert(chdir(starting_pwd) == 0);
+    
+    chdir(starting_pwd);
     delete[] starting_pwd;
     starting_pwd = nullptr;
 
