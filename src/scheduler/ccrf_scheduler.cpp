@@ -3,12 +3,11 @@
 #include "job_package.hpp"
 #include "ccrf.hpp"
 #include "utils.hpp"
+#include "driver.hpp"
 #include <hls_stream.h>
 
 using namespace hls;
 
-uintptr_t CCRF_SCRATCHPAD_START_ADDR = (uintptr_t)(0x10000000);
-uintptr_t CCRF_SCRATCHPAD_END_ADDR = (uintptr_t)(0x20000000);
 
 void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests, 
                            hls::stream<JOB_STATUS_MESSAGE> &response_message_queue,

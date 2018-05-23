@@ -58,25 +58,33 @@ checkdirs: $(BUILD_DIRS) $(BUILD_TEST_DIRS)
 
 all: checkdirs $(OBJS) 
 
-driver_test_zynq:
-	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DZYNQ_COMPILE \
-	-Iinclude/ \
+INCLUDES := -Iinclude/ \
 	-Iinclude/ccrf \
 	-Iinclude/scheduler/ \
 	-Iinclude/common \
 	-Iinclude/common/job_descriptor/ \
 	-Iinclude/common/dma/ \
 	-Iinclude/driver/ \
-	-I/opt/Xilinx/Vivado/$(VIVADO_VERSION)/include/ \
-	src/common/dma/libaxidma.cpp \
-	src/common/job_descriptor/job_descriptor.cpp \
-	src/common/helper.cpp \
-	src/common/utils.cpp \
-	src/driver/job_dispatcher.cpp \
-	src/driver/driver.cpp \
-	test/driver/driver_test_main.cpp \
-	-lopencv_highgui -lopencv_imgcodecs -lopencv_core -lpthread \
-	-o driver_test_main 
+	-I/opt/Xilinx/Vivado/$(VIVADO_VERSION)/include/ 
+
+driver_test_zynq:
+	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DZYNQ_COMPILE $(INCLUDES) -c src/common/dma/libaxidma.cpp -o objs/libaxidma.o
+	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DZYNQ_COMPILE $(INCLUDES) -c src/common/job_descriptor/job_descriptor.cpp -o objs/job_descriptor.o
+	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DZYNQ_COMPILE $(INCLUDES) -c src/common/helper.cpp -o objs/helper.o
+	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DZYNQ_COMPILE $(INCLUDES) -c src/common/utils.cpp -o objs/utils.o
+	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DZYNQ_COMPILE $(INCLUDES) -c src/driver/job_dispatcher.cpp -o objs/job_dispatcher.o
+	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DZYNQ_COMPILE $(INCLUDES) -c src/driver/driver.cpp -o objs/driver.o
+	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DZYNQ_COMPILE $(INCLUDES) -c test/driver/driver_test_main.cpp -o objs/driver_test_main.o
+	g++ $(CPPFLAGS) -L/usr/local/include objs/libaxidma.o \
+		objs/job_descriptor.o \
+		objs/helper.o \
+		objs/utils.o \
+		objs/job_dispatcher.o \
+		objs/driver.o \
+		objs/driver_test_main.o
+		-lopencv_highgui -lopencv_imgcodecs -lopencv_core -lpthread \
+		-o driver_test_main 
+
 #	-lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_photo -lopencv_aruco \
 	-lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_cvv -lopencv_dpm -lopencv_face \
 	-lopencv_freetype -lopencv_fuzzy -lopencv_hdf -lopencv_img_hash -lopencv_line_descriptor \
