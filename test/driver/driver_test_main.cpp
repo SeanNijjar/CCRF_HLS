@@ -24,6 +24,7 @@ int main(int argc, char *argv[])
     CCRF_SCRATCHPAD_END_ADDR = (uintptr_t)CCRF_SCRATCHPAD_START_ADDR + scratchpad_pixel_count;
 
     // Read in the test image sets
+    std::cout << "Reading in test image sets" << std::endl;
     const char *starting_pwd = get_current_dir_name();
     int rc = chdir(root_dir.c_str());
     assert(rc == 0);
@@ -47,6 +48,7 @@ int main(int argc, char *argv[])
     // Create job descriptions for each LDR image set to HDR image
     // Note though that these jobs are not consolidated (meaning all)
     // of the input and output images are not necessarily in contiguous memory
+    std::cout << "Creating job descriptors" << std::endl;
     std::vector<JobDescriptor*> job_descriptors;
     for (auto img_stack_iter = image_stacks.begin(); img_stack_iter != image_stacks.end(); img_stack_iter++) {
         JobDescriptor *new_job_descriptor = JobDescriptor::Create(*img_stack_iter);
@@ -56,6 +58,7 @@ int main(int argc, char *argv[])
 
     // Now we have to consolidate our job data so it is in a contiguous buffer
     // This is necessary to DMA the job to the FPGA/remote processor
+    std::cout << "Consolidating jobs" << std::endl;
     std::vector<BYTE_T*> consolidated_job_buffers;
     for (auto job_desc_iter = job_descriptors.begin(); job_desc_iter != job_descriptors.end(); job_desc_iter++) {
         //job_descriptor : job_descriptors) 
@@ -70,10 +73,16 @@ int main(int argc, char *argv[])
         consolidated_job_buffers.push_back(consolidated_job_buffer);
     }
 
+    std::cout << "Creating job dispatcher" << std::endl; 
     JobDispatcher job_dispatcher(JobDispatcher::DISPATCH_MODE_EXCLUSIVE_BLOCKING);
+    std::cout << "Starting job dispatcher" << std::endl;
+
     job_dispatcher.StartDispatcher();
+    std::cout << "Dispatching jobs" << std::endl;
+
     std::vector<JOB_ID_T> job_IDs;
     for (auto consolidated_job_buffer : consolidated_job_buffers) {
+        std::cout << "Dispatching job..." << std::endl;
         //job_dispatcher.DispatchJobAsync(JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer));
         job_dispatcher.DispatchJob(JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer));
     }

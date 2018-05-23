@@ -77,6 +77,7 @@ bool JobDispatcher::JobResponseQueueHasData()
 
 JOB_STATUS_MESSAGE JobDispatcher::ReadJobStatusMessage()
 {
+    
     #ifdef ZYNQ_COMPILE
     JOB_STATUS_MESSAGE response_message;
     driver.ReadResponseQueuePacket((uint8_t*)&response_message, sizeof(JOB_STATUS_MESSAGE));
@@ -94,6 +95,7 @@ void JobDispatcher::MainDispatcherThreadLoop()
         did_something_this_iteration = false;
 
         if (!incoming_job_queue.empty()) {
+            std::cout << "Submitting job from dispatcher" << std::endl;
             // Process the job and dispatch it
             JOB_ID_T new_job_ID = GenerateNewJobID();
             pending_jobs.push({incoming_job_queue.front(), new_job_ID});
@@ -105,7 +107,7 @@ void JobDispatcher::MainDispatcherThreadLoop()
 
         did_something_this_iteration = did_something_this_iteration || TryDispatchJob();
 
-        if (JobResponseQueueHasData()) {
+        if (did_something_this_iteration || JobResponseQueueHasData()) {
             // Remove the job from the set of active jobs
             JOB_STATUS_MESSAGE job_status = ReadJobStatusMessage();
 
@@ -159,8 +161,8 @@ void JobDispatcher::MainDispatcherThreadLoop()
 
 void JobDispatcher::StartDispatcher()
 {
-    #ifndef ZYNQ_COMPILE
     driver_thread = std::thread(&JobDispatcher::MainDispatcherThreadLoop, this);
+    #ifndef ZYNQ_COMPILE
     driver.Start();
     #endif
 }

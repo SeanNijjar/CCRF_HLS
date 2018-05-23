@@ -15,25 +15,19 @@ uintptr_t CCRF_SCRATCHPAD_END_ADDR = (uintptr_t)0x0;
 #ifdef ZYNQ_COMPILE
 void ZynqHardwareDriver::SendJobRequest(JobPackage &job)
 {
-    dma_transfer transfer_details;
-    transfer_details.input_size = 0;
-    transfer_details.output_channel = tx_chans->data[0];
-    transfer_details.output_fd = open(output_path.c_str(), O_WRONLY|O_CREAT|O_TRUNC, S_IWUSR|S_IRUSR|S_IRGRP|S_IWGRP|S_IROTH);
-    ASSERT(transfer_details.output_fd >= 0, "Couldn't open output file for transfer to FPGA");
     #ifdef LOOPBACK_TEST
     static int loopback_data = 1;
     std::cout << "write job_request queue:" << loopback_data << std::endl;
-    transfer_details.output_size = 4; // 32 bit in loopback test
-    transfer_details.output_buf = &loopback_data;
+    int buffer_size = 4; // 32 bit in loopback test
+    void *transfer_buffer = (void*)&loopback_data;
     loopback_data++;
     #else    
     std::cout << "sizeof(JobPackage)=" << sizeof(job) << std::endl;
-    transfer_details.output_size = sizeof(job);//JobDescriptor::BytesNeededForJobDescriptor(&job.job_descriptor) + sizeof(JOB_ID_T); //JobDescriptor::BytesNeededForEntireJob(job) + sizeof(JOB_ID_T);
-    transfer_details.output_buf = &job;
+    int buffer_size = sizeof(job);//JobDescriptor::BytesNeededForJobDescriptor(&job.job_descriptor) + sizeof(JOB_ID_T); //JobDescriptor::BytesNeededForEntireJob(job) + sizeof(JOB_ID_T);
+    void *transfer_buffer = (void*)&job;
     #endif
 
-    TransferFile(axidma_dev, transfer_details);
-    close(transfer_details.output_fd);
+    axidma_oneway_transfer(axidma_dev, tx_chans->data[0], transfer_buf, buffer_size, false);
 }
 
 const uint64_t ZynqHardwareDriver::GetDMAFileSize(std::string dma_file_path)
@@ -115,26 +109,28 @@ close_output:
 close_input:
     assert(close(trans.input_fd) == 0);
 end: {}
+    assert(close(trans.output_fd) == 0);
+    assert(close(trans.input_fd) == 0);
 }
 
 void ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read)
 {
-    dma_transfer transfer_info;
-    transfer_info.output_size = 0;
-    transfer_info.input_fd = open(input_path.c_str(), O_RDONLY);
-    transfer_info.input_buf = response_message_buffer;
-    transfer_info.input_channel = rx_chans->data[0];
     #ifdef LOOPBACK_TEST
     transfer_info.input_size = 4; // 32-bit hardcoded loopback size
     #else
     transfer_info.input_size = bytes_to_read;
     #endif
     
-    TransferFile(axidma_dev, transfer_info);
+    #ifdef LOOPBACK_TEST
+    bytes_to_read = 4; // 32 bit in loopback test
+    #else
+    #endif
+
+    axidma_oneway_transfer(axidma_dev, tx_chans->data[0], response_message_buffer, bytes_to_read, false);
+    
     #ifdef LOOPBACK_TEST
     std::cout << "Reading response packet: " << *(int*)response_message_buffer << std::endl;
     #endif
-    close(transfer_info.input_fd);
 }
 
 int ZynqHardwareDriver::TransferFile (
