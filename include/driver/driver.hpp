@@ -3,7 +3,7 @@
 
 #include "job_package.hpp"
 #include "types.hpp"
-#ifdef ZYNQ_HARDWARE
+#ifdef ZYNQ_COMPILE
 #include "libaxidma.hpp"
 #endif
 #include <string>
@@ -39,7 +39,7 @@ class Driver
    * struct dma_transfer
  **/
 
-#ifdef ZYNQ_HARDWARE
+#ifdef ZYNQ_COMPILE
 class ZynqHardwareDriver : public Driver
 {
   public:

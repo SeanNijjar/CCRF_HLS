@@ -1,6 +1,6 @@
 #include "driver.hpp"
 #include "job_package.hpp"
-#ifdef ZYNQ_HARDWARE
+#ifdef ZYNQ_COMPILE
 #include "libaxidma.hpp"
 #endif
 #include <hls_stream.h>
@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#ifdef ZYNQ_HARDWARE
+#ifdef ZYNQ_COMPILE
 void ZynqHardwareDriver::SendJobRequest(JobPackage &job)
 {
     dma_transfer transfer_details;
