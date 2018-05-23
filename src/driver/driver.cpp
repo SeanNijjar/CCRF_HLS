@@ -27,7 +27,7 @@ void ZynqHardwareDriver::SendJobRequest(JobPackage &job)
     void *transfer_buffer = (void*)&job;
     #endif
 
-    axidma_oneway_transfer(axidma_dev, tx_chans->data[0], transfer_buf, buffer_size, false);
+    axidma_oneway_transfer(axidma_dev, tx_chans->data[0], transfer_buffer, buffer_size, false);
 }
 
 const uint64_t ZynqHardwareDriver::GetDMAFileSize(std::string dma_file_path)
@@ -116,14 +116,7 @@ end: {}
 void ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read)
 {
     #ifdef LOOPBACK_TEST
-    transfer_info.input_size = 4; // 32-bit hardcoded loopback size
-    #else
-    transfer_info.input_size = bytes_to_read;
-    #endif
-    
-    #ifdef LOOPBACK_TEST
     bytes_to_read = 4; // 32 bit in loopback test
-    #else
     #endif
 
     axidma_oneway_transfer(axidma_dev, tx_chans->data[0], response_message_buffer, bytes_to_read, false);

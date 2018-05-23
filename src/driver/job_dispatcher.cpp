@@ -79,8 +79,14 @@ JOB_STATUS_MESSAGE JobDispatcher::ReadJobStatusMessage()
 {
     
     #ifdef ZYNQ_COMPILE
+    #ifdef LOOPBACK_TEST
     JOB_STATUS_MESSAGE response_message;
     driver.ReadResponseQueuePacket((uint8_t*)&response_message, sizeof(JOB_STATUS_MESSAGE));
+    #else
+    int response_message;
+    driver.ReadResponseQueuePacket((uint8_t*)&response_message, sizeof(JOB_STATUS_MESSAGE));
+    std::cout << "Response packet: " << response_message << std::endl;
+    #endif
     return response_message;
     #else
     return incoming_job_status_queue.read();
