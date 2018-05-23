@@ -67,7 +67,7 @@ driver_test_zynq:
 	-Iinclude/common/job_descriptor/ \
 	-Iinclude/common/dma/ \
 	-Iinclude/driver/ \
-	-I/home/opt/Xilinx/Vivado/$(VIVADO_VERSION)/include/ \
+	-I/opt/Xilinx/Vivado/$(VIVADO_VERSION)/include/ \
 	src/common/dma/libaxidma.cpp \
 	src/common/job_descriptor/job_descriptor.cpp \
 	src/common/helper.cpp \
@@ -76,8 +76,8 @@ driver_test_zynq:
 	src/driver/driver.cpp \
 	test/driver/driver_test_main.cpp \
 	-lopencv_highgui -lopencv_imgcodecs -lopencv_core -lpthread \
-	-o driver_test_main \
-	-lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_photo -lopencv_aruco \
+	-o driver_test_main 
+#	-lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_photo -lopencv_aruco \
 	-lopencv_bgsegm -lopencv_bioinspired -lopencv_ccalib -lopencv_cvv -lopencv_dpm -lopencv_face \
 	-lopencv_freetype -lopencv_fuzzy -lopencv_hdf -lopencv_img_hash -lopencv_line_descriptor \
 	-lopencv_optflow -lopencv_reg -lopencv_rgbd -lopencv_saliency -lopencv_stereo \

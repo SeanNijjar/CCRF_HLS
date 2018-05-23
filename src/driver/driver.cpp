@@ -9,6 +9,9 @@
 #include <unistd.h>
 #include <fcntl.h>
 
+extern uintptr_t CCRF_SCRATCHPAD_START_ADDR = (uintptr_t)0x0;
+extern uintptr_t CCRF_SCRATCHPAD_END_ADDR = (uintptr_t)0x0;
+
 #ifdef ZYNQ_COMPILE
 void ZynqHardwareDriver::SendJobRequest(JobPackage &job)
 {
