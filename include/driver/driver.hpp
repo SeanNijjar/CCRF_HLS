@@ -9,6 +9,10 @@
 #include <string>
 #include <hls_stream.h>
 
+// TODO: Ideally this can be passed to the FPGA
+extern uintptr_t CCRF_SCRATCHPAD_START_ADDR;
+extern uintptr_t CCRF_SCRATCHPAD_END_ADDR;
+
 class Driver
 {
   public:

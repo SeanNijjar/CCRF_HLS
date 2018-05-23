@@ -18,9 +18,7 @@ const int RESPONSE_QUEUE_DEPTH = 32;
 const int COMPLETED_JOBS_QUEUE_DEPTH = 16;
 static_assert(RESPONSE_QUEUE_DEPTH >= COMPLETED_JOBS_QUEUE_DEPTH, "RESPONSE_QUEUE_DEPTH must be >= COMPLETED_JOBS_QUEUE_DEPTH");
 const int JOBS_TO_SCHEDULE_QUEUE_DEPTH = 16;
-// TODO: Ideally this can be passed to the FPGA
-extern uintptr_t CCRF_SCRATCHPAD_START_ADDR;
-extern uintptr_t CCRF_SCRATCHPAD_END_ADDR;
+
 
 template <typename STREAM_CLASS>
 bool CcrfQueuesBusy(int queue_id, 
