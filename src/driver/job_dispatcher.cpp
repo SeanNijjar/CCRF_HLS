@@ -56,7 +56,7 @@ bool JobDispatcher::TryDispatchJob()
             #ifdef ZYNQ_COMPILE
             driver.SendJobRequest(pending_jobs.front());
             #else
-            outgoing_job_queue.write(pending_jobs.front());
+            outgoing_job_queue.push_back(pending_jobs.front());
             dispatch_request_in_flight = true;
             return true;
             #endif
@@ -95,13 +95,9 @@ void JobDispatcher::MainDispatcherThreadLoop()
 
         if (!incoming_job_queue.empty()) {
             // Process the job and dispatch it
-
-            //JobPackage new_job_package;
-            //new_job_package.job_descriptor = incoming_job_queue.read();
-            //new_job_package.job_ID = GenerateNewJobID();
-            //
             JOB_ID_T new_job_ID = GenerateNewJobID();
-            pending_jobs.push({incoming_job_queue.read(), new_job_ID});
+            pending_jobs.push({incoming_job_queue.front(), new_job_ID});
+            incoming_job_queue.erase(incoming_job_queue.begin());
             active_jobs.insert(new_job_ID);
             job_start_times[new_job_ID] = std::chrono::high_resolution_clock::now();
             did_something_this_iteration = true;
@@ -142,7 +138,7 @@ void JobDispatcher::MainDispatcherThreadLoop()
 
                     executing_jobs.pop();
                     JOB_COMPLETION_PACKET job_completion_packet({(uintptr_t)nullptr, job_status.job_ID, -1});
-                    outgoing_finished_job_queue.write(job_completion_packet);
+                    outgoing_finished_job_queue.push_back(job_completion_packet);
                     active_jobs.erase(job_status.job_ID);
                     accelerator_full = false;
                     
@@ -185,7 +181,7 @@ void JobDispatcher::SynchronizeWait()
 
 void JobDispatcher::DispatchJobAsync(const JobDescriptor *const job_descriptor) 
 {
-    incoming_job_queue.write(*job_descriptor);
+    incoming_job_queue.push_back(*job_descriptor);
 }
 
 void JobDispatcher::DispatchJob(const JobDescriptor *const job_descriptor) 

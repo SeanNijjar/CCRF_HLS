@@ -3,7 +3,7 @@
 #ifdef ZYNQ_COMPILE
 #include "libaxidma.hpp"
 #endif
-#include <hls_stream.h>
+#include <vector>
 #include <sys/stat.h>           // Open() system call
 #include <sys/types.h> 
 #include <unistd.h>
@@ -61,8 +61,8 @@ bool ZynqHardwareDriver::ResponseQueueHasData(const int minimum_bytes)
  *----------------------------------------------------------------------------*/
 
 ZynqHardwareDriver::ZynqHardwareDriver(
-        hls::stream<JobPackage> &incoming_queue, 
-        hls::stream<JOB_STATUS_MESSAGE> &outgoing_queue
+        std::vector<JobPackage> &incoming_queue, 
+        std::vector<JOB_STATUS_MESSAGE> &outgoing_queue
     ) :
     Driver(incoming_queue, outgoing_queue)
 {

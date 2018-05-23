@@ -7,7 +7,7 @@
 #include "libaxidma.hpp"
 #endif
 #include <string>
-#include <hls_stream.h>
+#include <vector>
 
 // TODO: Ideally this can be passed to the FPGA
 extern uintptr_t CCRF_SCRATCHPAD_START_ADDR;
@@ -16,14 +16,14 @@ extern uintptr_t CCRF_SCRATCHPAD_END_ADDR;
 class Driver
 {
   public:
-    Driver(hls::stream<JobPackage> &incoming_queue, hls::stream<JOB_STATUS_MESSAGE> &outgoing_queue) :
+    Driver(std::vector<JobPackage> &incoming_queue, std::vector<JOB_STATUS_MESSAGE> &outgoing_queue) :
         incoming_job_request_queue(incoming_queue), outgoing_job_response_queue(outgoing_queue)
     {
     }
 
   public:
-    hls::stream<JobPackage> &incoming_job_request_queue;
-    hls::stream<JOB_STATUS_MESSAGE> &outgoing_job_response_queue;
+    std::vector<JobPackage> &incoming_job_request_queue;
+    std::vector<JOB_STATUS_MESSAGE> &outgoing_job_response_queue;
 };
 
 /**
@@ -43,8 +43,8 @@ class Driver
 class ZynqHardwareDriver : public Driver
 {
   public:
-    ZynqHardwareDriver(hls::stream<JobPackage> &incoming_queue, 
-                       hls::stream<JOB_STATUS_MESSAGE> &outgoing_queue);
+    ZynqHardwareDriver(std::vector<JobPackage> &incoming_queue, 
+                       std::vector<JOB_STATUS_MESSAGE> &outgoing_queue);
 
   public:
     void SendJobRequest(JobPackage &job);

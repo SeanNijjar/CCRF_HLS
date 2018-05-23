@@ -10,7 +10,7 @@
 #include <map>
 #include <thread>
 
-#include <hls_stream.h>
+#include <vector>
 #include <unordered_set>
 #include <queue>
 #include <chrono>
@@ -119,10 +119,10 @@ class JobDispatcher
     std::vector<FINISHED_JOB_RECORD> finished_jobs;
   
 
-    hls::stream<JobDescriptor> incoming_job_queue;
-    hls::stream<JobPackage> outgoing_job_queue;
-    hls::stream<JOB_STATUS_MESSAGE> incoming_job_status_queue;
-    hls::stream<JOB_COMPLETION_PACKET> outgoing_finished_job_queue;
+    std::vector<JobDescriptor> incoming_job_queue;
+    std::vector<JobPackage> outgoing_job_queue;
+    std::vector<JOB_STATUS_MESSAGE> incoming_job_status_queue;
+    std::vector<JOB_COMPLETION_PACKET> outgoing_finished_job_queue;
     
     bool accelerator_full;
     bool dispatch_request_in_flight;

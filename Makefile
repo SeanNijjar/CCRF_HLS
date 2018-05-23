@@ -68,6 +68,7 @@ INCLUDES := -Iinclude/ \
 	-I/opt/Xilinx/Vivado/$(VIVADO_VERSION)/include/ 
 
 driver_test_zynq:
+	mkdir -p objs
 	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DZYNQ_COMPILE $(INCLUDES) -c src/common/dma/libaxidma.cpp -o objs/libaxidma.o
 	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DZYNQ_COMPILE $(INCLUDES) -c src/common/job_descriptor/job_descriptor.cpp -o objs/job_descriptor.o
 	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DZYNQ_COMPILE $(INCLUDES) -c src/common/helper.cpp -o objs/helper.o
@@ -81,7 +82,7 @@ driver_test_zynq:
 		objs/utils.o \
 		objs/job_dispatcher.o \
 		objs/driver.o \
-		objs/driver_test_main.o
+		objs/driver_test_main.o \
 		-lopencv_highgui -lopencv_imgcodecs -lopencv_core -lpthread \
 		-o driver_test_main 
 
