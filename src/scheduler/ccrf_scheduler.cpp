@@ -39,7 +39,10 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
             JobPackage job_request = incoming_job_requests.read();
             response_packet.packet_message_type = (jobs_to_schedule_queue.full()) ? JOB_STATUS_MESSAGE::JOB_REJECT_PACKET : JOB_STATUS_MESSAGE::JOB_ACCEPT_PACKET;
             response_packet.job_ID = job_request.job_ID;
-            //if (job_request.job_ID
+            if (job_request.job_ID == 0) { // Initialize the start and end addresses
+                CCRF_HARDWARE_SCRATCHPAD_START = job_request.job_descriptor.INPUT_IMAGES[0];
+                CCRF_HARDWARE_SCRATCHPAD_END = job_request.job_descriptor.INPUT_IMAGES[1];
+            }
             response_message_queue.write(response_packet);
             if (!jobs_to_schedule_queue.full()) {
                 jobs_to_schedule_queue.write(job_request);

@@ -43,7 +43,7 @@ JOB_ID_T JobDispatcher::GenerateNewJobID()
     return new_job_ID++;
     #else
     JOB_ID_T new_job_ID;
-    for (new_job_ID = 1; active_jobs.count(new_job_ID) > 0; new_job_ID++);
+    for (new_job_ID = JobPackage::INITIALIZATION_PACKET_ID(); active_jobs.count(new_job_ID) > 0; new_job_ID++);
     return new_job_ID;
     #endif
 }
@@ -107,22 +107,10 @@ JOB_STATUS_MESSAGE JobDispatcher::ReadJobStatusMessage()
     #endif
 }
 
+
 void JobDispatcher::MainDispatcherThreadLoop()
 {
     bool did_something_this_iteration = false;
-
-    #ifdef ZYNQ_COMPILE
-    JOB_STATUS_MESSAGE response_message;
-    int rc;
-    do {
-    #ifndef LOOPBACK_TEST
-    rc = driver.ReadResponseQueuePacket((uint8_t*)&response_message, sizeof(JOB_STATUS_MESSAGE));
-    #else
-    int response_message_int;
-    rc = driver.ReadResponseQueuePacket((uint8_t*)&response_message_int, sizeof(JOB_STATUS_MESSAGE));
-    #endif
-    } while (rc == 0);
-    #endif
 
     do {
         did_something_this_iteration = false;

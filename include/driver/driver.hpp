@@ -73,6 +73,7 @@ class ZynqHardwareDriver : public Driver
     const array_t *tx_chans, *rx_chans;
     std::string input_path, output_path;
 
+    void FlushHardware();
     int TransferFile(axidma_dev_t dev, dma_transfer trans);
     int ParseInt(char option, uint8_t *arg_str, int *data);
     int ParseDouble(char option, uint8_t *arg_str, double *data);

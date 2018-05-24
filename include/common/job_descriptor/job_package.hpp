@@ -10,6 +10,8 @@ struct JobPackage
     JobDescriptor job_descriptor;
     JOB_ID_T job_ID;
 
+    static JOB_ID_T INITIALIZATION_PACKET_ID() { return 0; }
+
     static JobDescriptor *GetJobDescriptorFromPackage(BYTE_T *job_package) {
         return JobDescriptor::InterpretRawBufferAsJobDescriptor((BYTE_T*)((char*)job_package + sizeof(JOB_ID_T)));
     }

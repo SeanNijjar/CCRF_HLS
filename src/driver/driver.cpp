@@ -107,11 +107,38 @@ ZynqHardwareDriver::ZynqHardwareDriver(
     std::cout << "\tTransmit Channel: " << tx_chans->data[0] << std::endl;
     std::cout << "\tReceive Channel: " << rx_chans->data[0] << std::endl;
 
+    FlushHardware();
+
+    InitializeHardwareScratchpadMemory();
+
     goto end;
 
 destroy_axidma:
     axidma_destroy(axidma_dev);
 end: {}
+}
+
+void ZynqHardwareDriver::InitializeHardwareScratchpadMemory(size_t scratchpad_size)
+{
+    uintptr_t start_addr = (uintptr_t)new PIXEL_T[scratchpad_size / sizeof(PIXEL_T)];
+    uintptr_t end_addr = (uintptr_t)CCRF_SCRATCHPAD_START_ADDR + scratchpad_pixel_count;
+    JobPackage initialization_message;
+    initialization_message.job_ID = JobPackage::INITIALIZATION_PACKET_ID(); //
+
+}
+
+void ZynqHardwareDriver::FlushHardware()
+{
+    JOB_STATUS_MESSAGE response_message;
+    int rc;
+    do {
+    #ifndef LOOPBACK_TEST
+    rc = ReadResponseQueuePacket((uint8_t*)&response_message, sizeof(JOB_STATUS_MESSAGE));
+    #else
+    int response_message_int;
+    rc = ReadResponseQueuePacket((uint8_t*)&response_message_int, sizeof(JOB_STATUS_MESSAGE));
+    #endif
+    } while (rc == 0);
 }
 
 bool ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read)
