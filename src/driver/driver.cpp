@@ -13,21 +13,28 @@ uintptr_t CCRF_SCRATCHPAD_START_ADDR = (uintptr_t)0x0;
 uintptr_t CCRF_SCRATCHPAD_END_ADDR = (uintptr_t)0x0;
 
 #ifdef ZYNQ_COMPILE
-void ZynqHardwareDriver::SendJobRequest(JobPackage &job)
+bool ZynqHardwareDriver::SendJobRequest(JobPackage &job)
 {
     #ifdef LOOPBACK_TEST
-    static int loopback_data = 1;
+    int loopback_data = job.job_ID;
     std::cout << "write job_request queue:" << loopback_data << std::endl;
     int buffer_size = 4; // 32 bit in loopback test
-    void *transfer_buffer = (void*)&loopback_data;
-    loopback_data++;
+    // TODO: Move to driver ctor
+    void *transfer_buffer = axidma_malloc(axidma_dev, buffer_size);
+    *(int*)transfer_buffer = loopback_data;
     #else    
     std::cout << "sizeof(JobPackage)=" << sizeof(job) << std::endl;
     int buffer_size = sizeof(job);//JobDescriptor::BytesNeededForJobDescriptor(&job.job_descriptor) + sizeof(JOB_ID_T); //JobDescriptor::BytesNeededForEntireJob(job) + sizeof(JOB_ID_T);
     void *transfer_buffer = (void*)&job;
     #endif
 
-    axidma_oneway_transfer(axidma_dev, tx_chans->data[0], transfer_buffer, buffer_size, false);
+    int rc = axidma_oneway_transfer(axidma_dev, tx_chans->data[0], transfer_buffer, buffer_size, false);
+    std::cout << "Done one-way transfer" << std::endl;
+    ASSERT(rc == 0, "return code is non-zero: " << rc);
+    #ifdef LOOPBACK_TEST
+    axidma_free(axidma_dev, transfer_buffer, buffer_size);
+    #endif
+    return (rc == 0) ? true : false;
 }
 
 const uint64_t ZynqHardwareDriver::GetDMAFileSize(std::string dma_file_path)
@@ -79,7 +86,7 @@ ZynqHardwareDriver::ZynqHardwareDriver(
     if (axidma_dev == NULL) {
         fprintf(stderr, "Error: Failed to initialize the AXI DMA device.\n");
         rc = 1;
-        goto close_output;
+        goto destroy_axidma;
     }
 
     // Get the tx and rx channels if they're not already specified
@@ -100,34 +107,33 @@ ZynqHardwareDriver::ZynqHardwareDriver(
     std::cout << "\tTransmit Channel: " << tx_chans->data[0] << std::endl;
     std::cout << "\tReceive Channel: " << rx_chans->data[0] << std::endl;
 
-#ifndef LOOPBACK_TEST
-/*
     goto end;
 
 destroy_axidma:
     axidma_destroy(axidma_dev);
-close_output:
-    assert(close(trans.output_fd) == 0);
-close_input:
-    assert(close(trans.input_fd) == 0);
 end: {}
-    assert(close(trans.output_fd) == 0);
-    assert(close(trans.input_fd) == 0);
-*/
-#endif
 }
 
-void ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read)
+bool ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read)
 {
     #ifdef LOOPBACK_TEST
+    const int smallest_bytes_to_read = std::min(bytes_to_read, (decltype(bytes_to_read))4);
     bytes_to_read = 4; // 32 bit in loopback test
     #endif
 
-    axidma_oneway_transfer(axidma_dev, tx_chans->data[0], response_message_buffer, bytes_to_read, false);
-    
+    void *axi_read_buffer = axidma_malloc(axidma_dev, bytes_to_read);
+    int rc = axidma_oneway_transfer(axidma_dev, rx_chans->data[0], axi_read_buffer, bytes_to_read, true);
+    #ifdef LOOPBACK_TEST
+    memcpy(response_message_buffer, axi_read_buffer, smallest_bytes_to_read);
+    #else
+    memcpy(response_message_buffer, axi_read_buffer, bytes_to_read);
+    #endif
+    axidma_free(axidma_dev, axi_read_buffer, bytes_to_read);
+
     #ifdef LOOPBACK_TEST
     std::cout << "Reading response packet: " << *(int*)response_message_buffer << std::endl;
     #endif
+    return (rc == 0) ? true : false;
 }
 
 int ZynqHardwareDriver::TransferFile (

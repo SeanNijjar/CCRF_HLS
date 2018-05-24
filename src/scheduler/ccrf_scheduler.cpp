@@ -3,10 +3,13 @@
 #include "job_package.hpp"
 #include "ccrf.hpp"
 #include "utils.hpp"
-#include "driver.hpp"
+//#include "driver.hpp"
 #include <hls_stream.h>
 
 using namespace hls;
+
+uintptr_t CCRF_HARDWARE_SCRATCHPAD_START;
+uintptr_t CCRF_HARDWARE_SCRATCHPAD_END;
 
 
 void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests, 
@@ -36,6 +39,7 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
             JobPackage job_request = incoming_job_requests.read();
             response_packet.packet_message_type = (jobs_to_schedule_queue.full()) ? JOB_STATUS_MESSAGE::JOB_REJECT_PACKET : JOB_STATUS_MESSAGE::JOB_ACCEPT_PACKET;
             response_packet.job_ID = job_request.job_ID;
+            //if (job_request.job_ID
             response_message_queue.write(response_packet);
             if (!jobs_to_schedule_queue.full()) {
                 jobs_to_schedule_queue.write(job_request);
@@ -61,7 +65,7 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
     bool current_job_valid = false;
     JobDescriptor current_job;
     JOB_ID_T current_job_ID;
-    uintptr_t output_addr = CCRF_SCRATCHPAD_START_ADDR;
+    uintptr_t output_addr = CCRF_HARDWARE_SCRATCHPAD_START;
 
     do {
         if (!current_job_valid && !input_jobs.empty()) {
@@ -84,8 +88,8 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
             }
 
             for (int output = 0; output < ldr_image_count - 1; output++) {
-                if (output_addr + (image_size * sizeof(PIXEL_T)) >= CCRF_SCRATCHPAD_END_ADDR) {
-                    output_addr = CCRF_SCRATCHPAD_START_ADDR;
+                if (output_addr + (image_size * sizeof(PIXEL_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
+                    output_addr = CCRF_HARDWARE_SCRATCHPAD_START;
                 }
                 output_addresses[output] = output_addr;
                 output_addr += image_size * sizeof(PIXEL_T);
@@ -107,7 +111,7 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
                     new_subtask.input1 = input_addresses[input];
                     new_subtask.input2 = input_addresses[input + 1];
                     new_subtask.output = real_output_addr;
-                    ASSERT(real_output_addr + (image_size * sizeof(PIXEL_T)) < CCRF_SCRATCHPAD_END_ADDR, "Out of range output");
+                    ASSERT(real_output_addr + (image_size * sizeof(PIXEL_T)) < CCRF_HARDWARE_SCRATCHPAD_END, "Out of range output");
                     new_subtask.image_size = image_size;
                     new_subtask.job_ID = current_job_ID;
                     ASSERT(new_subtask.image_size != 0, "Invalid subtask image_size");

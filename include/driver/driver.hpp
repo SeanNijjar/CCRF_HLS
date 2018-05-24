@@ -47,10 +47,10 @@ class ZynqHardwareDriver : public Driver
                        std::vector<JOB_STATUS_MESSAGE> &outgoing_queue);
 
   public:
-    void SendJobRequest(JobPackage &job);
+    bool SendJobRequest(JobPackage &job);
 
     bool ResponseQueueHasData(const int minimum_bytes);
-    void ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read);
+    bool ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read);
     const uint64_t GetDMAFileSize(std::string dma_file_path);
 
   private:

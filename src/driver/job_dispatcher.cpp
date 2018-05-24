@@ -38,9 +38,14 @@ JobDispatcher::~JobDispatcher()
 
 JOB_ID_T JobDispatcher::GenerateNewJobID()
 {
+    #ifdef LOOPBACK_TEST
+    static JOB_ID_T new_job_ID = 1;
+    return new_job_ID++;
+    #else
     JOB_ID_T new_job_ID;
     for (new_job_ID = 1; active_jobs.count(new_job_ID) > 0; new_job_ID++);
     return new_job_ID;
+    #endif
 }
 
 /** RETURNS: did_something
@@ -54,12 +59,19 @@ bool JobDispatcher::TryDispatchJob()
     if (pending_jobs.size()) {
         if (!accelerator_full && !dispatch_request_in_flight) {
             #ifdef ZYNQ_COMPILE
-            driver.SendJobRequest(pending_jobs.front());
+            std::cout << "Sending Job Request" << std::endl;
+            bool submitted = driver.SendJobRequest(pending_jobs.front());
+            if (submitted) {
+                dispatch_request_in_flight = true;
+                return true;
+            } else {
+                return false;
+            }
             #else
             outgoing_job_queue.push_back(pending_jobs.front());
-            #endif
-            return true;
             dispatch_request_in_flight = true;
+            return true;
+            #endif
         }
     }
 
@@ -79,13 +91,15 @@ JOB_STATUS_MESSAGE JobDispatcher::ReadJobStatusMessage()
 {
     
     #ifdef ZYNQ_COMPILE
-    #ifdef LOOPBACK_TEST
     JOB_STATUS_MESSAGE response_message;
+    #ifndef LOOPBACK_TEST
     driver.ReadResponseQueuePacket((uint8_t*)&response_message, sizeof(JOB_STATUS_MESSAGE));
     #else
-    int response_message;
-    driver.ReadResponseQueuePacket((uint8_t*)&response_message, sizeof(JOB_STATUS_MESSAGE));
-    std::cout << "Response packet: " << response_message << std::endl;
+    int response_message_int;
+    driver.ReadResponseQueuePacket((uint8_t*)&response_message_int, sizeof(JOB_STATUS_MESSAGE));
+    std::cout << "Response packet: " << response_message_int << std::endl;
+    response_message.packet_message_type = (response_message_int & 0xFF);
+    response_message.job_ID = ((response_message_int >> 8)& 0xFF);
     #endif
     return response_message;
     #else
@@ -97,13 +111,26 @@ void JobDispatcher::MainDispatcherThreadLoop()
 {
     bool did_something_this_iteration = false;
 
+    #ifdef ZYNQ_COMPILE
+    JOB_STATUS_MESSAGE response_message;
+    int rc;
+    do {
+    #ifndef LOOPBACK_TEST
+    rc = driver.ReadResponseQueuePacket((uint8_t*)&response_message, sizeof(JOB_STATUS_MESSAGE));
+    #else
+    int response_message_int;
+    rc = driver.ReadResponseQueuePacket((uint8_t*)&response_message_int, sizeof(JOB_STATUS_MESSAGE));
+    #endif
+    } while (rc == 0);
+    #endif
+
     do {
         did_something_this_iteration = false;
 
         if (!incoming_job_queue.empty()) {
-            std::cout << "Submitting job from dispatcher" << std::endl;
             // Process the job and dispatch it
             JOB_ID_T new_job_ID = GenerateNewJobID();
+            std::cout << "Submitting job from dispatcher: " << new_job_ID << std::endl;
             pending_jobs.push({incoming_job_queue.front(), new_job_ID});
             incoming_job_queue.erase(incoming_job_queue.begin());
             active_jobs.insert(new_job_ID);
@@ -111,12 +138,18 @@ void JobDispatcher::MainDispatcherThreadLoop()
             did_something_this_iteration = true;
         }
 
-        did_something_this_iteration = did_something_this_iteration || TryDispatchJob();
+        did_something_this_iteration = TryDispatchJob() || did_something_this_iteration;
 
         if (did_something_this_iteration || JobResponseQueueHasData()) {
             // Remove the job from the set of active jobs
             JOB_STATUS_MESSAGE job_status = ReadJobStatusMessage();
-
+            #ifdef LOOPBACK_TEST
+            ASSERT((uint8_t)job_status.packet_message_type == (uint8_t)(pending_jobs.front().job_ID & 0xFF), "LOOPBACK RESULT ERROR packet_message_type " << (unsigned int)job_status.packet_message_type << "!=" << (unsigned int)(pending_jobs.front().job_ID & 0xFF));
+            ASSERT((uint8_t)job_status.job_ID == (uint8_t)((pending_jobs.front().job_ID >> 8) & 0xFF), "LOOPBACK RESULT ERROR job_ID " << (unsigned int)job_status.job_ID << "!=" << (unsigned int)((pending_jobs.front().job_ID >> 8) & 0xFF));
+            pending_jobs.pop();
+            active_jobs.erase((JOB_ID_T)job_status.packet_message_type);
+            dispatch_request_in_flight = false;
+            #else
             switch (job_status.packet_message_type) {
                 case JOB_STATUS_MESSAGE::JOB_ACCEPT_PACKET: {
                     ASSERT(job_status.job_ID == pending_jobs.front().job_ID, "received accept message for job that isn't at head of queue");
@@ -152,6 +185,7 @@ void JobDispatcher::MainDispatcherThreadLoop()
                     
                 } break;
             };
+            #endif
 
             did_something_this_iteration = true;
         }
