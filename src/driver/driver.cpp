@@ -100,6 +100,8 @@ ZynqHardwareDriver::ZynqHardwareDriver(
     std::cout << "\tTransmit Channel: " << tx_chans->data[0] << std::endl;
     std::cout << "\tReceive Channel: " << rx_chans->data[0] << std::endl;
 
+#ifndef LOOPBACK_TEST
+/*
     goto end;
 
 destroy_axidma:
@@ -111,6 +113,8 @@ close_input:
 end: {}
     assert(close(trans.output_fd) == 0);
     assert(close(trans.input_fd) == 0);
+*/
+#endif
 }
 
 void ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read)

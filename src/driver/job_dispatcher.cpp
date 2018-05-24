@@ -57,9 +57,9 @@ bool JobDispatcher::TryDispatchJob()
             driver.SendJobRequest(pending_jobs.front());
             #else
             outgoing_job_queue.push_back(pending_jobs.front());
-            dispatch_request_in_flight = true;
-            return true;
             #endif
+            return true;
+            dispatch_request_in_flight = true;
         }
     }
 
