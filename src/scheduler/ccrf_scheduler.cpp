@@ -342,7 +342,7 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
     } while (0);
 }
 
-typedef ap_axis<sizeof(JOB_STATUS_MESSAGE)*8, 1, 1, 1> JOB_STATUS_MESSAGE_AXI;
+typedef ap_axis<32, 1, 1, 1> JOB_STATUS_MESSAGE_AXI;
 
 void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests, 
                  //hls::stream<JOB_STATUS_MESSAGE> &response_message_queue
@@ -409,7 +409,7 @@ void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
     
     if (!response_message_queue.empty()) {
         JOB_STATUS_MESSAGE response_message_reply = response_message_queue.read();
-        uint16_t response_message_reply_bits = *(uint16_t*)&response_message_reply;
+        uint32_t response_message_reply_bits = *(uint16_t*)&response_message_reply;
         #pragma HLS DATA_PACK variable=response_message_reply
         JOB_STATUS_MESSAGE_AXI axi_stream_packet;
         axi_stream_packet.last = true;
