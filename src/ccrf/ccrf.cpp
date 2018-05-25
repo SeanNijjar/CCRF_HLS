@@ -6,8 +6,22 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
 //,              BYTE_T *const memory_bus)
 {
     //#pragma HLS INTERFACE m_axi port=memory_bus depth=2147483648 offset=slave
+    #pragma HLS INTERFACE ap_none port=status_signals
     #pragma HLS STREAM variable=input_subtask_queue depth=1
     #pragma HLS STREAM variable=output_subtask_queue depth=1
+    bool started = false;
+    if (!started) {
+        #pragma HLS UNROLL
+        status_signals.is_processing = false;
+        status_signals.running = true;
+        status_signals.job_info.input1 = (uintptr_t)nullptr;
+        status_signals.job_info.input2 = (uintptr_t)nullptr;
+        status_signals.job_info.output = (uintptr_t)nullptr;
+        status_signals.job_info.image_size = 0;
+        status_signals.job_info.job_ID = 0;
+        started = true;
+    }
+
     do {
         if (!input_subtask_queue.empty()) {
             ASSERT(!status_signals.is_processing, "Tried to start a new job on an already busy CCRF unit");

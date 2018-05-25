@@ -5,6 +5,7 @@
 #include "utils.hpp"
 //#include "driver.hpp"
 #include <hls_stream.h>
+#include <ap_axi_sdata.h>
 
 using namespace hls;
 
@@ -203,7 +204,6 @@ int GetAvailableCCRFUnit(CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_
 
 bool IntervalsOverlap(uintptr_t  interval_1, int interval_1_byte_count, uintptr_t interval_2, int interval_2_byte_count)
 {
-    //return interval_1 == interval_2;
     bool interval_1_starts_in_interval_2 = (interval_2 <= interval_1 && interval_1 <= interval_2 + interval_2_byte_count);
     bool interval_2_starts_in_interval_1 = (interval_1 <= interval_2 && interval_2 <= interval_1 + interval_1_byte_count);
     return interval_1_starts_in_interval_2 || interval_2_starts_in_interval_1;
@@ -221,7 +221,7 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
     #endif
     const int dependency_count = 3;
     typedef void* dependency_type;
-    //const uintptr_t dependencies[3] = {task_to_check.input1, task_to_check.input2, task_to_check.output};
+    
     uintptr_t dependencies[3]; //= {task_to_check.input1, task_to_check.input2, task_to_check.output};
     dependencies[0] = task_to_check.input1;
     dependencies[1] = task_to_check.input2;
@@ -242,11 +242,6 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
             // wait for the ccrf unit to load the value if queue_busy
             continue;
         }
-        //if (queue_busy || !is_running) {
-        //    // scan again - wait for this unit to load it's value or power up
-        //    ccrf_unit = -1;
-        //    continue;
-        //}
 
         /* In the case where job IDs do not match (i.e. we are trying to schedule some subtasks of the)
          * next job while the tail of the current job is finishing), then we need to check every input and output
@@ -347,20 +342,20 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
     } while (0);
 }
 
+typedef ap_axis<sizeof(JOB_STATUS_MESSAGE)*8, 1, 1, 1> JOB_STATUS_MESSAGE_AXI;
 
 void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests, 
-                 hls::stream<JOB_STATUS_MESSAGE> &response_message_queue)
+                 //hls::stream<JOB_STATUS_MESSAGE> &response_message_queue
+                 hls::stream<JOB_STATUS_MESSAGE_AXI> response_message_queue_axi
+                 )
+
 //,                 BYTE_T *const memory_bus)
 {
-    //#pragma HLS INTERFACE m_axi port=memory_bus depth=2147483648 offset=slave
-    //#pragma HLS INTERFACE axis port=incoming_job_requests offset=slave
-    //#pragma HLS INTERFACE axis port=response_message_queue
-
-	#pragma HLS RESOURCE core=axis variable=response_message_queue
+	#pragma HLS RESOURCE core=axis variable=response_message_queue_axi
+	#pragma HLS DATA_PACK variable=response_message_queue_axi
 	#pragma HLS RESOURCE core=axis variable=incoming_job_requests
 	#pragma HLS DATA_PACK variable=incoming_job_requests struct_level
-	#pragma HLS DATA_PACK variable=response_message_queue struct_level
-
+    static hls::stream<JOB_STATUS_MESSAGE> response_message_queue;
     static hls::stream<JobPackage> jobs_to_schedule_queue;
     static hls::stream<JOB_COMPLETION_PACKET> completed_jobs_queue;
     static hls::stream<JOB_COMPLETION_PACKET> jobs_in_progress;
@@ -373,23 +368,12 @@ void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
     #pragma HLS STREAM variable ccrf_input_queues depth=1
     #pragma HLS STREAM variable ccrf_output_queues depth=1
     #pragma HLS STREAM variable=jobs_to_schedule_queue depth=8
+    #pragma HLS STREAM variable=response_message_queue depth=8
     #pragma HLS STREAM variable=completed_jobs_queue depth=8
     #pragma HLS STREAM variable=jobs_in_progress depth=4
     #pragma HLS STREAM variable=subtask_queue depth=32
 
-    static bool started = false;
-    if (!started) {
-        for (int i = 0; i < CCRF_COMPUTE_UNIT_COUNT; i++) {
-            #pragma HLS UNROLL
-            ccrf_unit_status_signals[i].is_processing = false;
-            ccrf_unit_status_signals[i].running = true;
-            ccrf_unit_status_signals[i].job_info.input1 = (uintptr_t)nullptr;
-            ccrf_unit_status_signals[i].job_info.input2 = (uintptr_t)nullptr;
-            ccrf_unit_status_signals[i].job_info.output = (uintptr_t)nullptr;
-            ccrf_unit_status_signals[i].job_info.image_size = 0;
-            ccrf_unit_status_signals[i].job_info.job_ID = 0;
-        }
-    }
+
 
     //while(1) {
     #pragma HLS DATAFLOW
@@ -421,6 +405,22 @@ void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
                 ccrf_output_queues[i]
 				//,memory_bus
         		);
+    }
+    
+    if (!response_message_queue.empty()) {
+        JOB_STATUS_MESSAGE response_message_reply = response_message_queue.read();
+        uint16_t response_message_reply_bits = *(uint16_t*)&response_message_reply;
+        #pragma HLS DATA_PACK variable=response_message_reply
+        JOB_STATUS_MESSAGE_AXI axi_stream_packet;
+        axi_stream_packet.last = true;
+        axi_stream_packet.data = response_message_reply_bits;
+        axi_stream_packet.id = ap_int<1>(0);
+        axi_stream_packet.keep = 0x00;
+        axi_stream_packet.strb = 0;
+        axi_stream_packet.dest = 0;
+        axi_stream_packet.user = 0;
+
+        response_message_queue_axi.write(axi_stream_packet);
     }
    // }
 }
