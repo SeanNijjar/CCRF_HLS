@@ -67,15 +67,34 @@ INCLUDES := -Iinclude/ \
 	-Iinclude/driver/ \
 	-I/opt/Xilinx/Vivado/$(VIVADO_VERSION)/include/ 
 
+driver_test_zynq_loopback_test:
+	mkdir -p objs
+	g++ $(CPPFLAGS) -DHW_COMPILE -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/common/dma/libaxidma.cpp -o objs/libaxidma.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/common/job_descriptor/job_descriptor.cpp -o objs/job_descriptor.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/common/helper.cpp -o objs/helper.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/common/utils.cpp -o objs/utils.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/driver/job_dispatcher.cpp -o objs/job_dispatcher.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/driver/driver.cpp -o objs/driver.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c test/driver/driver_test_main.cpp -o objs/driver_test_main.o
+	g++ $(CPPFLAGS) -L/usr/local/include objs/libaxidma.o \
+		objs/job_descriptor.o \
+		objs/helper.o \
+		objs/utils.o \
+		objs/job_dispatcher.o \
+		objs/driver.o \
+		objs/driver_test_main.o \
+		-lopencv_highgui -lopencv_imgcodecs -lopencv_core -lpthread \
+		-o driver_test_main 
+
 driver_test_zynq:
 	mkdir -p objs
-	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/common/dma/libaxidma.cpp -o objs/libaxidma.o
-	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/common/job_descriptor/job_descriptor.cpp -o objs/job_descriptor.o
-	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/common/helper.cpp -o objs/helper.o
-	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/common/utils.cpp -o objs/utils.o
-	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/driver/job_dispatcher.cpp -o objs/job_dispatcher.o
-	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c src/driver/driver.cpp -o objs/driver.o
-	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) $(CSIM_COMPILE_FLAGS) -DLOOPBACK_TEST -DZYNQ_COMPILE $(INCLUDES) -c test/driver/driver_test_main.cpp -o objs/driver_test_main.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c src/common/dma/libaxidma.cpp -o objs/libaxidma.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c src/common/job_descriptor/job_descriptor.cpp -o objs/job_descriptor.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c src/common/helper.cpp -o objs/helper.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c src/common/utils.cpp -o objs/utils.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c src/driver/job_dispatcher.cpp -o objs/job_dispatcher.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c src/driver/driver.cpp -o objs/driver.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c test/driver/driver_test_main.cpp -o objs/driver_test_main.o
 	g++ $(CPPFLAGS) -L/usr/local/include objs/libaxidma.o \
 		objs/job_descriptor.o \
 		objs/helper.o \

@@ -76,6 +76,8 @@ class JobDispatcher
     void StartDispatcher();
     void StopDispatcher();
 
+    inline void *AxidmaMalloc(size_t size_in_bytes) { return driver.AxidmaMalloc(size_in_bytes); }
+    inline void *AxidmaFree(void *buffer, size_t buffer_size) { driver.AxidmaFree(buffer, buffer_size); }
 
     void DispatchJobAsync(const JobDescriptor *const job_descriptor);
     /** This function will attempt to dispatch the job to the remote HDR processor.

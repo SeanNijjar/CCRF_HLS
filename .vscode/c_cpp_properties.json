@@ -41,7 +41,7 @@
                 "/usr/lib/gcc/x86_64-linux-gnu/5/include-fixed",
                 "/usr/include/x86_64-linux-gnu",
                 "/usr/include",
-                "/home/opt/Xilinx/Vivado_HLS/2017.2/include/"
+                "/home/opt/Xilinx/Vivado/2017.4/include/"
             ],
             "defines": [],
             "intelliSenseMode": "clang-x64",

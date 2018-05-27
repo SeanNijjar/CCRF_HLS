@@ -41,6 +41,11 @@ int main(int argc, char *argv[])
     chdir(starting_pwd);
     delete[] starting_pwd;
     starting_pwd = nullptr;
+    
+    std::cout << "Creating job dispatcher" << std::endl; 
+    JobDispatcher job_dispatcher(JobDispatcher::DISPATCH_MODE_EXCLUSIVE_BLOCKING);
+    std::cout << "Starting job dispatcher" << std::endl;
+    job_dispatcher.StartDispatcher();
 
     // Create job descriptions for each LDR image set to HDR image
     // Note though that these jobs are not consolidated (meaning all)
@@ -65,16 +70,11 @@ int main(int argc, char *argv[])
             strcpy((char*)(*job_desc_iter)->INPUT_IMAGES[i], input_string.c_str());
         }
         unsigned long bytes_needed_for_entire_job = JobDescriptor::BytesNeededForEntireJob(*job_desc_iter);
-        BYTE_T *consolidated_job_buffer = (BYTE_T*)new BYTE_T*[bytes_needed_for_entire_job + 32];
+        BYTE_T *consolidated_job_buffer = (BYTE_T*)job_dispatcher.AxidmaMalloc(bytes_needed_for_entire_job + 32);//(BYTE_T*)new BYTE_T*[bytes_needed_for_entire_job + 32];
         JobPackage::ConsolidateJob(consolidated_job_buffer, *job_desc_iter);
         consolidated_job_buffers.push_back(consolidated_job_buffer);
     }
-
-    std::cout << "Creating job dispatcher" << std::endl; 
-    JobDispatcher job_dispatcher(JobDispatcher::DISPATCH_MODE_EXCLUSIVE_BLOCKING);
-    std::cout << "Starting job dispatcher" << std::endl;
-
-    job_dispatcher.StartDispatcher();
+    
     std::cout << "Dispatching jobs" << std::endl;
 
     std::vector<JOB_ID_T> job_IDs;
@@ -93,6 +93,7 @@ int main(int argc, char *argv[])
         JobDescriptor *processed_image_job_descriptor = JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer);
         IMAGE_T image_to_write_to_file((PIXEL_T*)processed_image_job_descriptor->OUTPUT_IMAGE_LOCATION, processed_image_job_descriptor->IMAGE_WIDTH, processed_image_job_descriptor->IMAGE_HEIGHT);
         WriteImageToFile(image_to_write_to_file, std::string("HDR_OUTPUT_").append(std::to_string(i)).append(".png"));
+        job_dispatcher.AxidmaFree(consolidated_job_buffer, JobDescriptor::BytesNeededForEntireJob((JobDescriptor*)consolidated_job_buffer) + 32);
         i++;
     }
 

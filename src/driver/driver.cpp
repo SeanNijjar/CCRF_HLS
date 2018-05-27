@@ -18,22 +18,18 @@ bool ZynqHardwareDriver::SendJobRequest(JobPackage &job)
     #ifdef LOOPBACK_TEST
     int loopback_data = job.job_ID;
     std::cout << "write job_request queue:" << loopback_data << std::endl;
-    int buffer_size = 4; // 32 bit in loopback test
-    // TODO: Move to driver ctor
-    void *transfer_buffer = axidma_malloc(axidma_dev, buffer_size);
-    *(int*)transfer_buffer = loopback_data;
-    #else    
-    std::cout << "sizeof(JobPackage)=" << sizeof(job) << std::endl;
-    int buffer_size = sizeof(job);//JobDescriptor::BytesNeededForJobDescriptor(&job.job_descriptor) + sizeof(JOB_ID_T); //JobDescriptor::BytesNeededForEntireJob(job) + sizeof(JOB_ID_T);
-    void *transfer_buffer = (void*)&job;
+    void *job_buffer = &loopback_data;
+    #else
+    void *job_buffer = &job;
     #endif
 
-    int rc = axidma_oneway_transfer(axidma_dev, tx_chans->data[0], transfer_buffer, buffer_size, false);
+    memcpy(job_package_axidma_buffer, &job_buffer, job_package_axidma_buffer_size);
+    int rc = axidma_oneway_transfer(axidma_dev, tx_chans->data[0], 
+                                    job_package_axidma_buffer, 
+                                    job_package_axidma_buffer_size, 
+                                    false);
     std::cout << "Done one-way transfer" << std::endl;
     ASSERT(rc == 0, "return code is non-zero: " << rc);
-    #ifdef LOOPBACK_TEST
-    axidma_free(axidma_dev, transfer_buffer, buffer_size);
-    #endif
     return (rc == 0) ? true : false;
 }
 
@@ -73,7 +69,15 @@ ZynqHardwareDriver::ZynqHardwareDriver(
         std::vector<JobPackage> &incoming_queue, 
         std::vector<JOB_STATUS_MESSAGE> &outgoing_queue
     ) :
-    Driver(incoming_queue, outgoing_queue)
+    Driver(incoming_queue, outgoing_queue),
+    scratchpad_size_in_bytes(80000*sizeof(PIXEL_T)),
+    #ifdef LOOPBACK_TEST
+    job_package_axidma_buffer_size(4),
+    job_status_axidma_buffer_size(4)
+    #else
+    job_package_axidma_buffer_size(sizeof(JobPackage)),
+    job_status_axidma_buffer_size(sizeof(JOB_STATUS_MESSAGE))
+    #endif
 {
     output_path = "/dev/axidma";
     input_path = "/dev/axidma";
@@ -109,7 +113,11 @@ ZynqHardwareDriver::ZynqHardwareDriver(
 
     FlushHardware();
 
-    InitializeHardwareScratchpadMemory();
+    InitializeHardwareScratchpadMemory(80000);
+
+    // Initialize transfer buffers
+    job_package_axidma_buffer = (JobPackage*)AxidmaMalloc(sizeof(JobPackage));
+    job_status_axidma_buffer = (JOB_STATUS_MESSAGE*)AxidmaMalloc(sizeof(JOB_STATUS_MESSAGE));
 
     goto end;
 
@@ -118,44 +126,47 @@ destroy_axidma:
 end: {}
 }
 
+
+ZynqHardwareDriver::~ZynqHardwareDriver()
+{
+    AxidmaFree((void*)job_package_axidma_buffer, job_package_axidma_buffer_size);
+    AxidmaFree((void*)job_status_axidma_buffer, job_status_axidma_buffer_size);
+    AxidmaFree((void*)scratchpad_start_addr, scratchpad_size_in_bytes);
+    axidma_destroy(axidma_dev);
+}
+
 void ZynqHardwareDriver::InitializeHardwareScratchpadMemory(size_t scratchpad_size)
 {
-    uintptr_t start_addr = (uintptr_t)new PIXEL_T[scratchpad_size / sizeof(PIXEL_T)];
-    uintptr_t end_addr = (uintptr_t)CCRF_SCRATCHPAD_START_ADDR + scratchpad_pixel_count;
+    int scratchpad_pixel_count = scratchpad_size / sizeof(PIXEL_T);
+    scratchpad_start_addr = (uintptr_t)AxidmaMalloc(scratchpad_size_in_bytes);
+    uintptr_t scratchpad_end_addr = (uintptr_t)((char*)scratchpad_start_addr + scratchpad_size_in_bytes);
     JobPackage initialization_message;
     initialization_message.job_ID = JobPackage::INITIALIZATION_PACKET_ID(); //
-
+    initialization_message.job_descriptor.INPUT_IMAGES[0] = scratchpad_start_addr;
+    initialization_message.job_descriptor.INPUT_IMAGES[1] = scratchpad_end_addr;
+    SendJobRequest(initialization_message);
 }
 
 void ZynqHardwareDriver::FlushHardware()
 {
     JOB_STATUS_MESSAGE response_message;
     int rc;
+    std::cout << "Flush Hardware" << std::endl;
     do {
-    #ifndef LOOPBACK_TEST
-    rc = ReadResponseQueuePacket((uint8_t*)&response_message, sizeof(JOB_STATUS_MESSAGE));
-    #else
     int response_message_int;
     rc = ReadResponseQueuePacket((uint8_t*)&response_message_int, sizeof(JOB_STATUS_MESSAGE));
-    #endif
     } while (rc == 0);
 }
 
 bool ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read)
 {
-    #ifdef LOOPBACK_TEST
-    const int smallest_bytes_to_read = std::min(bytes_to_read, (decltype(bytes_to_read))4);
-    bytes_to_read = 4; // 32 bit in loopback test
-    #endif
+    int rc = axidma_oneway_transfer(axidma_dev, 
+                                    rx_chans->data[0], 
+                                    job_status_axidma_buffer, 
+                                    job_status_axidma_buffer_size, 
+                                    true);
 
-    void *axi_read_buffer = axidma_malloc(axidma_dev, bytes_to_read);
-    int rc = axidma_oneway_transfer(axidma_dev, rx_chans->data[0], axi_read_buffer, bytes_to_read, true);
-    #ifdef LOOPBACK_TEST
-    memcpy(response_message_buffer, axi_read_buffer, smallest_bytes_to_read);
-    #else
-    memcpy(response_message_buffer, axi_read_buffer, bytes_to_read);
-    #endif
-    axidma_free(axidma_dev, axi_read_buffer, bytes_to_read);
+    memcpy(response_message_buffer, job_status_axidma_buffer, job_status_axidma_buffer_size);
 
     #ifdef LOOPBACK_TEST
     std::cout << "Reading response packet: " << *(int*)response_message_buffer << std::endl;
@@ -164,14 +175,13 @@ bool ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffe
 }
 
 int ZynqHardwareDriver::TransferFile (
-    axidma_dev_t dev, 
     dma_transfer trans
 ) {
     int rc;
     
     // Allocate a buffer for the input file, and read it into the buffer
     if (trans.input_size) {
-        trans.input_buf = axidma_malloc(dev, trans.input_size);
+        trans.input_buf = AxidmaMalloc(trans.input_size);
         if (trans.input_buf == NULL) {
             std::cerr << "Failed to allocate the input buffer" << std::endl;
             rc = -ENOMEM;
@@ -180,7 +190,7 @@ int ZynqHardwareDriver::TransferFile (
 
     if (trans.output_size) {
         // Allocate a buffer for the output file
-        trans.output_buf = axidma_malloc(dev, trans.output_size);
+        trans.output_buf = AxidmaMalloc(trans.output_size);
         if (trans.output_buf == NULL) {
             std::cerr << "Failed to allocate the output buffer" << std::endl;
             rc = -ENOMEM;
@@ -192,7 +202,7 @@ int ZynqHardwareDriver::TransferFile (
     // Perform the transfer
     if (rc == 0) {
         if (trans.output_size && trans.input_size) {
-            rc = axidma_twoway_transfer(dev, trans.input_channel, trans.input_buf,
+            rc = axidma_twoway_transfer(axidma_dev, trans.input_channel, trans.input_buf,
                     trans.input_size, trans.output_channel, trans.output_buf,
                     trans.output_size, true);
             if (rc < 0) {
@@ -214,10 +224,10 @@ int ZynqHardwareDriver::TransferFile (
             }
         }
         if (free_input_buf) {
-            axidma_free(dev, trans.input_buf, trans.input_size);
+            AxidmaFree(trans.input_buf, trans.input_size);
         }
         if (free_output_buf) {
-            axidma_free(dev, trans.output_buf, trans.output_size);
+            AxidmaFree(trans.output_buf, trans.output_size);
         }
     }
 

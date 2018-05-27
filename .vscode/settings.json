@@ -40,7 +40,8 @@
         "*.ipp": "cpp",
         "iostream": "cpp",
         "set": "cpp",
-        "string": "cpp"
+        "string": "cpp",
+        "slist": "cpp"
     },
     "C_Cpp.dimInactiveRegions": false
 }

@@ -107,7 +107,6 @@ JOB_STATUS_MESSAGE JobDispatcher::ReadJobStatusMessage()
     #endif
 }
 
-
 void JobDispatcher::MainDispatcherThreadLoop()
 {
     bool did_something_this_iteration = false;

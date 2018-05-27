@@ -45,6 +45,7 @@ class ZynqHardwareDriver : public Driver
   public:
     ZynqHardwareDriver(std::vector<JobPackage> &incoming_queue, 
                        std::vector<JOB_STATUS_MESSAGE> &outgoing_queue);
+    ~ZynqHardwareDriver();
 
   public:
     bool SendJobRequest(JobPackage &job);
@@ -52,6 +53,10 @@ class ZynqHardwareDriver : public Driver
     bool ResponseQueueHasData(const int minimum_bytes);
     bool ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read);
     const uint64_t GetDMAFileSize(std::string dma_file_path);
+
+    void *AxidmaMalloc(size_t size_in_bytes) { return axidma_malloc(axidma_dev, size_in_bytes); }
+    void AxidmaFree(void *buffer, size_t buffer_size) { axidma_free(axidma_dev, buffer, buffer_size); }
+
 
   private:
     struct dma_transfer {
@@ -73,8 +78,19 @@ class ZynqHardwareDriver : public Driver
     const array_t *tx_chans, *rx_chans;
     std::string input_path, output_path;
 
+    /* AXIDMA BUFFERS */
+    JobPackage *job_package_axidma_buffer;
+    size_t job_package_axidma_buffer_size;
+    JOB_STATUS_MESSAGE *job_status_axidma_buffer;
+    size_t job_status_axidma_buffer_size;
+    uintptr_t scratchpad_start_addr;
+    size_t scratchpad_size_in_bytes;
+    /*----------------*/
+
+
+    void InitializeHardwareScratchpadMemory(size_t scratchpad_size);
     void FlushHardware();
-    int TransferFile(axidma_dev_t dev, dma_transfer trans);
+    int TransferFile(dma_transfer trans);
     int ParseInt(char option, uint8_t *arg_str, int *data);
     int ParseDouble(char option, uint8_t *arg_str, double *data);
     int RobustRead(int fd, uint8_t *buf, int buf_size);

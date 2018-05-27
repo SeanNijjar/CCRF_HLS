@@ -43,11 +43,12 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
             if (job_request.job_ID == 0) { // Initialize the start and end addresses
                 CCRF_HARDWARE_SCRATCHPAD_START = job_request.job_descriptor.INPUT_IMAGES[0];
                 CCRF_HARDWARE_SCRATCHPAD_END = job_request.job_descriptor.INPUT_IMAGES[1];
+            } else {
+                response_message_queue.write(response_packet);
+                if (!jobs_to_schedule_queue.full()) {
+                    jobs_to_schedule_queue.write(job_request);
+                } 
             }
-            response_message_queue.write(response_packet);
-            if (!jobs_to_schedule_queue.full()) {
-                jobs_to_schedule_queue.write(job_request);
-            } 
         }
 
     } while (0);
@@ -69,7 +70,8 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
     bool current_job_valid = false;
     JobDescriptor current_job;
     JOB_ID_T current_job_ID;
-    uintptr_t output_addr = CCRF_HARDWARE_SCRATCHPAD_START;
+    //uintptr_t output_addr = CCRF_HARDWARE_SCRATCHPAD_START;
+    uint32_t scratchpad_offset = 0;
 
     do {
         if (!current_job_valid && !input_jobs.empty()) {
@@ -92,11 +94,15 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
             }
 
             for (int output = 0; output < ldr_image_count - 1; output++) {
-                if (output_addr + (image_size * sizeof(PIXEL_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
-                    output_addr = CCRF_HARDWARE_SCRATCHPAD_START;
+                //if (output_addr + (image_size * sizeof(PIXEL_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
+                if (CCRF_HARDWARE_SCRATCHPAD_START + scratchpad_offset + (image_size * sizeof(PIXEL_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
+                    //output_addr = CCRF_HARDWARE_SCRATCHPAD_START;
+                    scratchpad_offset = 0;
                 }
-                output_addresses[output] = output_addr;
-                output_addr += image_size * sizeof(PIXEL_T);
+                //output_addresses[output] = output_addr;
+                output_addresses[output] = CCRF_HARDWARE_SCRATCHPAD_START + scratchpad_offset;
+                //output_addr += image_size * sizeof(PIXEL_T);
+                scratchpad_offset += image_size * sizeof(PIXEL_T);
             }
 
             //while(jobs_in_progress.full());

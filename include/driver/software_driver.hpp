@@ -30,6 +30,9 @@ class SoftwareTestDriver : public Driver
         InitializeCcrfUnitsAndQueues(default_ccrf_count);
     }
 
+    inline void *AxidmaMalloc(size_t size_in_bytes) { return (void*) new char[size_in_bytes]; }
+    inline void AxidmaFree(void *buffer, size_t buffer_size) { delete buffer; }
+
     ~SoftwareTestDriver();
 
     void SendJobLaunchRequest(JobPackage job_request);
