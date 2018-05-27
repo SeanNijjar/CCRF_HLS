@@ -69,7 +69,7 @@ int main(int argc, char *argv[])
             input_string.append(std::to_string(i));
             strcpy((char*)(*job_desc_iter)->INPUT_IMAGES[i], input_string.c_str());
         }
-        unsigned long bytes_needed_for_entire_job = JobDescriptor::BytesNeededForEntireJob(*job_desc_iter);
+        size_t bytes_needed_for_entire_job = JobDescriptor::BytesNeededForEntireJob(*job_desc_iter);
         BYTE_T *consolidated_job_buffer = (BYTE_T*)job_dispatcher.AxidmaMalloc(bytes_needed_for_entire_job + 32);//(BYTE_T*)new BYTE_T*[bytes_needed_for_entire_job + 32];
         JobPackage::ConsolidateJob(consolidated_job_buffer, *job_desc_iter);
         consolidated_job_buffers.push_back(consolidated_job_buffer);

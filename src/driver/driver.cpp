@@ -23,7 +23,7 @@ bool ZynqHardwareDriver::SendJobRequest(JobPackage &job)
     void *job_buffer = &job;
     #endif
 
-    memcpy(job_package_axidma_buffer, &job_buffer, job_package_axidma_buffer_size);
+    memcpy(job_package_axidma_buffer, job_buffer, job_package_axidma_buffer_size);
     int rc = axidma_oneway_transfer(axidma_dev, tx_chans->data[0], 
                                     job_package_axidma_buffer, 
                                     job_package_axidma_buffer_size, 
@@ -113,11 +113,12 @@ ZynqHardwareDriver::ZynqHardwareDriver(
 
     FlushHardware();
 
-    InitializeHardwareScratchpadMemory(80000);
-
-    // Initialize transfer buffers
+    // Initialize transfer buffers - must come before scratchpad initialize
     job_package_axidma_buffer = (JobPackage*)AxidmaMalloc(sizeof(JobPackage));
     job_status_axidma_buffer = (JOB_STATUS_MESSAGE*)AxidmaMalloc(sizeof(JOB_STATUS_MESSAGE));
+
+    InitializeHardwareScratchpadMemory(6000000);
+
 
     goto end;
 
