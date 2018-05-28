@@ -63,16 +63,14 @@ int main(int argc, char *argv[])
     std::cout << "Consolidating jobs" << std::endl;
     std::vector<BYTE_T*> consolidated_job_buffers;
     for (auto job_desc_iter = job_descriptors.begin(); job_desc_iter != job_descriptors.end(); job_desc_iter++) {
-        //job_descriptor : job_descriptors) 
-        for (int i = 0; i < (*job_desc_iter)->LDR_IMAGE_COUNT; i++) {
-            std::string input_string = "y";
-            input_string.append(std::to_string(i));
-            strcpy((char*)(*job_desc_iter)->INPUT_IMAGES[i], input_string.c_str());
-        }
         size_t bytes_needed_for_entire_job = JobDescriptor::BytesNeededForEntireJob(*job_desc_iter);
         BYTE_T *consolidated_job_buffer = (BYTE_T*)job_dispatcher.AxidmaMalloc(bytes_needed_for_entire_job + 32);//(BYTE_T*)new BYTE_T*[bytes_needed_for_entire_job + 32];
         JobPackage::ConsolidateJob(consolidated_job_buffer, *job_desc_iter);
         consolidated_job_buffers.push_back(consolidated_job_buffer);
+
+        for (int i = 0; i < (*job_desc_iter)->LDR_IMAGE_COUNT; i++) {
+            delete (PIXEL_T*)(*job_desc_iter)->INPUT_IMAGES[0];
+        }
     }
     
     std::cout << "Dispatching jobs" << std::endl;
