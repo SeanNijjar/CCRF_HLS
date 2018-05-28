@@ -111,14 +111,16 @@ ZynqHardwareDriver::ZynqHardwareDriver(
     std::cout << "\tTransmit Channel: " << tx_chans->data[0] << std::endl;
     std::cout << "\tReceive Channel: " << rx_chans->data[0] << std::endl;
 
-    FlushHardware();
-
     // Initialize transfer buffers - must come before scratchpad initialize
     job_package_axidma_buffer = (JobPackage*)AxidmaMalloc(sizeof(JobPackage));
     job_status_axidma_buffer = (JOB_STATUS_MESSAGE*)AxidmaMalloc(sizeof(JOB_STATUS_MESSAGE));
 
-    InitializeHardwareScratchpadMemory(6000000);
+    ASSERT(job_package_axidma_buffer, "job_package_axidma_buffer not allocated properly");
+    ASSERT(job_status_axidma_buffer, "job_status_axidma_buffer not allocated properly");
 
+    FlushHardware();
+
+    InitializeHardwareScratchpadMemory(6000000);
 
     goto end;
 
@@ -150,13 +152,15 @@ void ZynqHardwareDriver::InitializeHardwareScratchpadMemory(size_t scratchpad_si
 
 void ZynqHardwareDriver::FlushHardware()
 {
+    #ifdef LOOPBACK_TEST
     JOB_STATUS_MESSAGE response_message;
     int rc;
     std::cout << "Flush Hardware" << std::endl;
     do {
-    int response_message_int;
-    rc = ReadResponseQueuePacket((uint8_t*)&response_message_int, sizeof(JOB_STATUS_MESSAGE));
+        int response_message_int;
+        rc = ReadResponseQueuePacket((uint8_t*)&response_message_int, sizeof(JOB_STATUS_MESSAGE));
     } while (rc == 0);
+    #endif
 }
 
 bool ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read)

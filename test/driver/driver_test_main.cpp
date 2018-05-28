@@ -55,6 +55,16 @@ int main(int argc, char *argv[])
     for (auto img_stack_iter = image_stacks.begin(); img_stack_iter != image_stacks.end(); img_stack_iter++) {
         JobDescriptor *new_job_descriptor = JobDescriptor::Create(*img_stack_iter);
 
+        size_t image_size = new_job_descriptor->IMAGE_SIZE() * sizeof(PIXEL_T);
+        int num_images = new_job_descriptor->LDR_IMAGE_COUNT;
+        for (int i = 0; i < num_images; i++) {//auto image : image_stack) {
+            PIXEL_T *image = (PIXEL_T*)job_dispatcher.AxidmaMalloc(image_size);
+            memcpy(image, (PIXEL_T*)new_job_descriptor->INPUT_IMAGES[i], image_size);
+            delete (PIXEL_T*)new_job_descriptor->INPUT_IMAGES[i];
+            new_job_descriptor->INPUT_IMAGES[i] = (uintptr_t)image;
+        }
+
+        new_job_descriptor->OUTPUT_IMAGE_LOCATION = (uintptr_t)job_dispatcher.AxidmaMalloc(image_size);
         job_descriptors.push_back(new_job_descriptor);
     }
 
@@ -65,12 +75,8 @@ int main(int argc, char *argv[])
     for (auto job_desc_iter = job_descriptors.begin(); job_desc_iter != job_descriptors.end(); job_desc_iter++) {
         size_t bytes_needed_for_entire_job = JobDescriptor::BytesNeededForEntireJob(*job_desc_iter);
         BYTE_T *consolidated_job_buffer = (BYTE_T*)job_dispatcher.AxidmaMalloc(bytes_needed_for_entire_job + 32);//(BYTE_T*)new BYTE_T*[bytes_needed_for_entire_job + 32];
-        JobPackage::ConsolidateJob(consolidated_job_buffer, *job_desc_iter);
+        memcpy(consolidated_job_buffer, (*job_desc_iter), JobDescriptor::BytesNeededForJobDescriptor((*job_desc_iter)->LDR_IMAGE_COUNT));
         consolidated_job_buffers.push_back(consolidated_job_buffer);
-
-        for (int i = 0; i < (*job_desc_iter)->LDR_IMAGE_COUNT; i++) {
-            delete (PIXEL_T*)(*job_desc_iter)->INPUT_IMAGES[0];
-        }
     }
     
     std::cout << "Dispatching jobs" << std::endl;
@@ -78,7 +84,6 @@ int main(int argc, char *argv[])
     std::vector<JOB_ID_T> job_IDs;
     for (auto consolidated_job_buffer : consolidated_job_buffers) {
         std::cout << "Dispatching job..." << std::endl;
-        //job_dispatcher.DispatchJobAsync(JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer));
         job_dispatcher.DispatchJob(JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer));
     }
 
