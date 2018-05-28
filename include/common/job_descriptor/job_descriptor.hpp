@@ -59,6 +59,7 @@ struct JobDescriptor
     }
 
     static const int BytesNeededForJobDescriptor(const int num_images) {
+        return sizeof(JobDescriptor);
         return offsetof(JobDescriptor, INPUT_IMAGES) + sizeof(PIXEL_T*) * num_images;
     }
 

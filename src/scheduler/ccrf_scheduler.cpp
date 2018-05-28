@@ -5,7 +5,6 @@
 #include "utils.hpp"
 //#include "driver.hpp"
 #include <hls_stream.h>
-#include <ap_axi_sdata.h>
 
 using namespace hls;
 
@@ -67,11 +66,11 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
     DO_PRAGMA(HLS stream depth=1 variable=jobs_in_progress); // Force only one job allowed at a time
     
     const int max_active_jobs = CCRF_COMPUTE_UNIT_COUNT;
-    bool current_job_valid = false;
-    JobDescriptor current_job;
-    JOB_ID_T current_job_ID;
+    static bool current_job_valid = false;
+    static JobDescriptor current_job;
+    static JOB_ID_T current_job_ID;
     //uintptr_t output_addr = CCRF_HARDWARE_SCRATCHPAD_START;
-    uint32_t scratchpad_offset = 0;
+    static uint32_t scratchpad_offset = 0;
 
     do {
         if (!current_job_valid && !input_jobs.empty()) {
@@ -310,7 +309,7 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
     #pragma HLS INTERFACE ap_fifo port=dispatcher_stream_in
     #pragma HLS STREAM variable subtask_to_ccrf_queues depth=1
     DO_PRAGMA(HLS stream depth=DISPATCHER_STREAM_DEPTH variable=dispatcher_stream_in)
-    JOB_SUBTASK task_to_add;
+    static JOB_SUBTASK task_to_add;
     bool task_to_add_pending = false; // If we popped the task from the stream but couldn't run it last call
     
     do {
@@ -348,13 +347,11 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
     } while (0);
 }
 
-typedef ap_axis<32, 1, 1, 1> JOB_STATUS_MESSAGE_AXI;
 
-void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests, 
-                 //hls::stream<JOB_STATUS_MESSAGE> &response_message_queue
-                 hls::stream<JOB_STATUS_MESSAGE_AXI> response_message_queue_axi
+
+void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
+                 hls::stream<JOB_STATUS_MESSAGE_AXI> &response_message_queue_axi
                  )
-
 //,                 BYTE_T *const memory_bus)
 {
 	#pragma HLS RESOURCE core=axis variable=response_message_queue_axi
@@ -418,8 +415,8 @@ void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
         uint32_t response_message_reply_bits = *(uint16_t*)&response_message_reply;
         #pragma HLS DATA_PACK variable=response_message_reply
         JOB_STATUS_MESSAGE_AXI axi_stream_packet;
-        axi_stream_packet.last = true;
-        axi_stream_packet.data = response_message_reply_bits;
+        axi_stream_packet.last = ap_uint<1>(true);
+        axi_stream_packet.data = ap_int<32>(response_message_reply_bits);
         axi_stream_packet.id = ap_int<1>(0);
         axi_stream_packet.keep = 0x00;
         axi_stream_packet.strb = 0;

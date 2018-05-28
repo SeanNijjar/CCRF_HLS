@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
         for (int i = 0; i < num_images; i++) {//auto image : image_stack) {
             PIXEL_T *image = (PIXEL_T*)job_dispatcher.AxidmaMalloc(image_size);
             memcpy(image, (PIXEL_T*)new_job_descriptor->INPUT_IMAGES[i], image_size);
-            delete (PIXEL_T*)new_job_descriptor->INPUT_IMAGES[i];
+            delete (BYTE_T*)new_job_descriptor->INPUT_IMAGES[i];
             new_job_descriptor->INPUT_IMAGES[i] = (uintptr_t)image;
         }
 
@@ -74,7 +74,11 @@ int main(int argc, char *argv[])
     std::vector<BYTE_T*> consolidated_job_buffers;
     for (auto job_desc_iter = job_descriptors.begin(); job_desc_iter != job_descriptors.end(); job_desc_iter++) {
         size_t bytes_needed_for_entire_job = JobDescriptor::BytesNeededForEntireJob(*job_desc_iter);
+        #ifdef CSIM
+        BYTE_T *consolidated_job_buffer = (BYTE_T*)new BYTE_T[bytes_needed_for_entire_job + 32];//(BYTE_T*)new BYTE_T*[bytes_needed_for_entire_job + 32];
+        #else
         BYTE_T *consolidated_job_buffer = (BYTE_T*)job_dispatcher.AxidmaMalloc(bytes_needed_for_entire_job + 32);//(BYTE_T*)new BYTE_T*[bytes_needed_for_entire_job + 32];
+        #endif
         memcpy(consolidated_job_buffer, (*job_desc_iter), JobDescriptor::BytesNeededForJobDescriptor((*job_desc_iter)->LDR_IMAGE_COUNT));
         consolidated_job_buffers.push_back(consolidated_job_buffer);
     }
@@ -96,7 +100,11 @@ int main(int argc, char *argv[])
         JobDescriptor *processed_image_job_descriptor = JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer);
         IMAGE_T image_to_write_to_file((PIXEL_T*)processed_image_job_descriptor->OUTPUT_IMAGE_LOCATION, processed_image_job_descriptor->IMAGE_WIDTH, processed_image_job_descriptor->IMAGE_HEIGHT);
         WriteImageToFile(image_to_write_to_file, std::string("HDR_OUTPUT_").append(std::to_string(i)).append(".png"));
+        #ifdef CSIM
+        delete consolidated_job_buffer;
+        #else
         job_dispatcher.AxidmaFree(consolidated_job_buffer, JobDescriptor::BytesNeededForEntireJob((JobDescriptor*)consolidated_job_buffer) + 32);
+        #endif
         i++;
     }
 

@@ -65,7 +65,7 @@ INCLUDES := -Iinclude/ \
 	-Iinclude/common/job_descriptor/ \
 	-Iinclude/common/dma/ \
 	-Iinclude/driver/ \
-	-I/opt/Xilinx/Vivado/$(VIVADO_VERSION)/include/ 
+	-I/home/opt/Xilinx/Vivado/$(VIVADO_VERSION)/include/ 
 
 driver_test_zynq_loopback_test:
 	mkdir -p objs
@@ -117,24 +117,29 @@ driver_test_zynq:
 
 
 driver_test_main:
-	g++ $(CPPFLAGS) $(HW_COMPILE_FLAGS) -DCSIM \
-	-Iinclude/ \
-	-Iinclude/ccrf \
-	-Iinclude/scheduler/ \
-	-Iinclude/common \
-	-Iinclude/common/job_descriptor/ \
-	-Iinclude/driver/ \
-	-I/home/opt/Xilinx/Vivado/$(VIVADO_VERSION)/include/ \
-	src/scheduler/ccrf_scheduler.cpp \
-	src/common/job_descriptor/job_descriptor.cpp \
-	src/common/helper.cpp \
-	src/common/utils.cpp \
-	src/driver/job_dispatcher.cpp \
-	src/driver/software_driver.cpp \
-	src/driver/driver.cpp \
-	src/ccrf/ccrf.cpp \
-	src/ccrf/software_test_ccrf.cpp \
-	test/driver/driver_test_main.cpp \
+	mkdir -p objs
+	g++ $(CPPFLAGS) -DHW_COMPILE -DCSIM $(INCLUDES) -c src/scheduler/ccrf_scheduler.cpp -o objs/ccrf_scheduler.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DCSIM $(INCLUDES) -c src/common/job_descriptor/job_descriptor.cpp -o objs/job_descriptor.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DCSIM $(INCLUDES) -c src/common/helper.cpp -o objs/helper.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DCSIM $(INCLUDES) -c src/common/utils.cpp -o objs/utils.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DCSIM $(INCLUDES) -c src/driver/job_dispatcher.cpp -o objs/job_dispatcher.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DCSIM $(INCLUDES) -c src/driver/software_driver.cpp -o objs/software_driver.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DCSIM $(INCLUDES) -c src/driver/driver.cpp -o objs/driver.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DCSIM $(INCLUDES) -c src/ccrf/ccrf.cpp -o objs/ccrf.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DCSIM $(INCLUDES) -c src/ccrf/software_test_ccrf.cpp -o objs/software_test_ccrf.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DCSIM $(INCLUDES) -c test/driver/driver_test_main.cpp -o objs/driver_test_main.o
+	g++ $(CPPFLAGS) -DHW_COMPILE -DCSIM $(INCLUDES) \
+	-L/usr/local/include/ -L/home/opt/Xilinx/Vivado/$(VIVADO_VERSION)/lib/ \
+	objs/ccrf_scheduler.o \
+	objs/job_descriptor.o \
+	objs/helper.o \
+	objs/utils.o \
+	objs/job_dispatcher.o \
+	objs/software_driver.o \
+	objs/driver.o \
+	objs/ccrf.o \
+	objs/software_test_ccrf.o \
+	objs/driver_test_main.o \
 	-lopencv_highgui -lopencv_imgcodecs -lopencv_core -lpthread \
 	-o driver_test_main \
 	-lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_photo -lopencv_aruco \
@@ -158,4 +163,5 @@ run_scheduler_test: all ccrf_scheduler_test
 	./build_test/ccrf_scheduler_test
 
 clean:
+	rm driver_test_main
 	rm -rf $(BUILDDIR) $(BUILDTESTDIR)

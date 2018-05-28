@@ -15,11 +15,24 @@ void SoftwareTestDriver::SendJobLaunchRequest(JobPackage job_request)
 
 void SoftwareTestDriver::RunCcrfCsim() 
 {
+    hls::stream<JobPackage> to_ccrf_wrapper;
+    hls::stream<JOB_STATUS_MESSAGE_AXI> from_ccrf_wrapper;
     while(1) {
-        CcrfWrapper(std::ref(incoming_job_request_queue), std::ref(outgoing_job_response_queue));
-        /*,
-        (BYTE_T *const)nullptr);// Treat uintptrs as raw pointers (not address offsets) May need to change this in the future
-        */
+        if (incoming_job_request_queue.size()) {
+            to_ccrf_wrapper.write(incoming_job_request_queue.front());
+            incoming_job_request_queue.erase(incoming_job_request_queue.begin());
+        }
+
+        CcrfWrapper(std::ref(to_ccrf_wrapper), std::ref(from_ccrf_wrapper));
+
+        if (!from_ccrf_wrapper.empty()) {
+            JOB_STATUS_MESSAGE_AXI response_message;
+            response_message = from_ccrf_wrapper.read();
+            JOB_STATUS_MESSAGE status_message;
+            status_message.packet_message_type = response_message.data & 0xFF;
+            status_message.job_ID = (response_message.data >> 8) & 0xFF;
+            outgoing_job_response_queue.push_back(status_message);
+        }
     }
 }
 

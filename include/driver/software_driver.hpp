@@ -31,7 +31,7 @@ class SoftwareTestDriver : public Driver
     }
 
     inline void *AxidmaMalloc(size_t size_in_bytes) { return (void*) new char[size_in_bytes]; }
-    inline void AxidmaFree(void *buffer, size_t buffer_size) { delete buffer; }
+    inline void AxidmaFree(void *buffer, size_t buffer_size) { delete (char*)buffer; }
 
     ~SoftwareTestDriver();
 

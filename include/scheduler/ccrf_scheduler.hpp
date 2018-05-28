@@ -7,6 +7,7 @@
 #include "job_package.hpp"
 #include "ccrf.hpp"
 #include <hls_stream.h>
+#include <ap_axi_sdata.h>
 
 #define NUM_CCRF_UNITS 6
 //const int CCRF_COMPUTE_UNIT_COUNT = NUM_CCRF_UNITS;
@@ -19,6 +20,7 @@ const int COMPLETED_JOBS_QUEUE_DEPTH = 16;
 static_assert(RESPONSE_QUEUE_DEPTH >= COMPLETED_JOBS_QUEUE_DEPTH, "RESPONSE_QUEUE_DEPTH must be >= COMPLETED_JOBS_QUEUE_DEPTH");
 const int JOBS_TO_SCHEDULE_QUEUE_DEPTH = 16;
 
+typedef ap_axis<32, 1, 1, 1> JOB_STATUS_MESSAGE_AXI;
 
 template <typename STREAM_CLASS>
 bool CcrfQueuesBusy(int queue_id, 
@@ -74,7 +76,7 @@ void CcrfSubtaskDispatcher_StaticWrapper(hls::stream<JOB_SUBTASK> &dispatcher_st
 );
 
 void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests, 
-                 hls::stream<JOB_STATUS_MESSAGE> &response_message_queue
+                 hls::stream<JOB_STATUS_MESSAGE_AXI> &response_message_queue
                  //,BYTE_T *const memory_bus
                  );
 

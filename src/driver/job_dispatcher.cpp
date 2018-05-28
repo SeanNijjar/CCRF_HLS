@@ -43,7 +43,7 @@ JOB_ID_T JobDispatcher::GenerateNewJobID()
     return new_job_ID++;
     #else
     JOB_ID_T new_job_ID;
-    for (new_job_ID = JobPackage::INITIALIZATION_PACKET_ID(); active_jobs.count(new_job_ID) > 0; new_job_ID++);
+    for (new_job_ID = JobPackage::INITIALIZATION_PACKET_ID() + 1; active_jobs.count(new_job_ID) > 0; new_job_ID++);
     return new_job_ID;
     #endif
 }
@@ -83,13 +83,16 @@ bool JobDispatcher::JobResponseQueueHasData()
     #ifdef ZYNQ_COMPILE
     return driver.ResponseQueueHasData(sizeof(JOB_STATUS_MESSAGE));
     #else
+    #ifdef CSIM
     return !incoming_job_status_queue.empty();
+    #else
+    return true;//incoming_job_status_queue.empty();
+    #endif
     #endif
 }
 
 JOB_STATUS_MESSAGE JobDispatcher::ReadJobStatusMessage()
 {
-    
     #ifdef ZYNQ_COMPILE
     JOB_STATUS_MESSAGE response_message;
     #ifndef LOOPBACK_TEST
@@ -103,13 +106,32 @@ JOB_STATUS_MESSAGE JobDispatcher::ReadJobStatusMessage()
     #endif
     return response_message;
     #else
-    return incoming_job_status_queue.read();
+    while (incoming_job_status_queue.empty());
+    ASSERT(incoming_job_status_queue.size(), "Incoming job queue empty");
+    JOB_STATUS_MESSAGE message = incoming_job_status_queue.front();
+    incoming_job_status_queue.erase(incoming_job_status_queue.begin());
+    return message;
     #endif
 }
 
 void JobDispatcher::MainDispatcherThreadLoop()
 {
     bool did_something_this_iteration = false;
+
+    #ifdef CSIM
+    {
+        const int scratchpad_size = 60000000;
+        const int scratchpad_size_in_bytes = scratchpad_size / sizeof(PIXEL_T);
+        uintptr_t scratchpad_start_addr = (uintptr_t)new BYTE_T[scratchpad_size_in_bytes];
+        uintptr_t scratchpad_end_addr = (uintptr_t)((char*)scratchpad_start_addr + scratchpad_size_in_bytes);
+        JobPackage initialization_message;
+        initialization_message.job_ID = JobPackage::INITIALIZATION_PACKET_ID(); //
+        initialization_message.job_descriptor.INPUT_IMAGES[0] = scratchpad_start_addr;
+        initialization_message.job_descriptor.INPUT_IMAGES[1] = scratchpad_end_addr;
+        outgoing_job_queue.push_back(initialization_message);
+        //driver.SendJobRequest(initialization_message);
+    }
+    #endif
 
     do {
         did_something_this_iteration = false;
