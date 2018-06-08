@@ -11,6 +11,24 @@ using namespace hls;
 uintptr_t CCRF_HARDWARE_SCRATCHPAD_START;
 uintptr_t CCRF_HARDWARE_SCRATCHPAD_END;
 
+void Counter(ap_int<4> &counter_out) {
+    static ap_int<4> counter = 4;
+    counter_out = counter++;
+}
+
+void CompletedJobQueueReader(hls::stream<JOB_STATUS_MESSAGE> &response_message_queue,
+                             hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_queue
+                             )
+{
+    if(!completed_jobs_queue.empty()) {
+        JOB_COMPLETION_PACKET completed_job = completed_jobs_queue.read();
+        JOB_STATUS_MESSAGE completion_packet_for_host;
+        completion_packet_for_host.packet_message_type = JOB_STATUS_MESSAGE::JOB_DONE_PACKET;
+        completion_packet_for_host.job_ID = completed_job.job_ID;
+        ASSERT(!response_message_queue.full(), "response message queue is full");
+        response_message_queue.write(completion_packet_for_host);
+    }
+}
 
 void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests, 
                            hls::stream<JOB_STATUS_MESSAGE> &response_message_queue,
@@ -18,8 +36,7 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
                            hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_queue,
 						   bool &ccrf_top_level_saw_data,
 						   bool &ccrf_top_level_scratchpad,
-						   bool &incoming_job_request_from_top_level_populated,
-						   ap_int<4> &counter_out)
+						   bool &incoming_job_request_from_top_level_populated)
 {
     DO_PRAGMA(HLS stream depth=RESPONSE_QUEUE_DEPTH variable=response_message_queue)
     #pragma HLS stream depth=8 variable=incoming_job_requests
@@ -28,46 +45,37 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
     //#pragma HLS INTERFACE ap_fifo port=incoming_job_requests
     //#pragma HLS INTERFACE ap_fifo port=response_message_queue
 
-	static ap_int<4> counter = 0;
+    incoming_job_request_from_top_level_populated = !incoming_job_requests.empty();
 
-
-    do {
-    	counter_out = counter++;
-
-    	incoming_job_request_from_top_level_populated = !incoming_job_requests.empty();
-
-        if(!completed_jobs_queue.empty()) {
-            JOB_COMPLETION_PACKET completed_job = completed_jobs_queue.read();
-            JOB_STATUS_MESSAGE completion_packet_for_host;
-            completion_packet_for_host.packet_message_type = JOB_STATUS_MESSAGE::JOB_DONE_PACKET;
-            completion_packet_for_host.job_ID = completed_job.job_ID;
-            ASSERT(!response_message_queue.full(), "response message queue is full");
-            response_message_queue.write(completion_packet_for_host);
-        }
-
-        if (!incoming_job_requests.empty()) {
-            JOB_STATUS_MESSAGE response_packet;
-            JobPackage job_request = incoming_job_requests.read();
-            response_packet.packet_message_type = (jobs_to_schedule_queue.full()) ? JOB_STATUS_MESSAGE::JOB_REJECT_PACKET : JOB_STATUS_MESSAGE::JOB_ACCEPT_PACKET;
-            response_packet.job_ID = job_request.job_ID;
-            if (job_request.job_ID == 0) { // Initialize the start and end addresses
-                CCRF_HARDWARE_SCRATCHPAD_START = job_request.job_descriptor.INPUT_IMAGES[0];
-                CCRF_HARDWARE_SCRATCHPAD_END = job_request.job_descriptor.INPUT_IMAGES[1];
-                ccrf_top_level_scratchpad = true;
-            } else {
-            	ccrf_top_level_scratchpad = false;
-                response_message_queue.write(response_packet);
-                if (!jobs_to_schedule_queue.full()) {
-                    jobs_to_schedule_queue.write(job_request);
-                } 
-            }
-            ccrf_top_level_saw_data = true;
+    if(!completed_jobs_queue.empty()) {
+        JOB_COMPLETION_PACKET completed_job = completed_jobs_queue.read();
+        JOB_STATUS_MESSAGE completion_packet_for_host;
+        completion_packet_for_host.packet_message_type = JOB_STATUS_MESSAGE::JOB_DONE_PACKET;
+        completion_packet_for_host.job_ID = completed_job.job_ID;
+        ASSERT(!response_message_queue.full(), "response message queue is full");
+        response_message_queue.write(completion_packet_for_host);
+    } else if (!incoming_job_requests.empty()) {
+        JOB_STATUS_MESSAGE response_packet;
+        JobPackage job_request = incoming_job_requests.read();
+        response_packet.packet_message_type = (jobs_to_schedule_queue.full()) ? JOB_STATUS_MESSAGE::JOB_REJECT_PACKET : JOB_STATUS_MESSAGE::JOB_ACCEPT_PACKET;
+        response_packet.job_ID = job_request.job_ID;
+        if (job_request.job_ID == 0) { // Initialize the start and end addresses
+            CCRF_HARDWARE_SCRATCHPAD_START = job_request.job_descriptor.INPUT_IMAGES[0];
+            CCRF_HARDWARE_SCRATCHPAD_END = job_request.job_descriptor.INPUT_IMAGES[1];
+            ccrf_top_level_scratchpad = true;
         } else {
-        	ccrf_top_level_saw_data = false;
-        	ccrf_top_level_scratchpad = false;
+            ccrf_top_level_scratchpad = false;
+            response_message_queue.write(response_packet);
+            if (!jobs_to_schedule_queue.full()) {
+                jobs_to_schedule_queue.write(job_request);
+            } 
         }
+        ccrf_top_level_saw_data = true;
+    } else {
+        ccrf_top_level_saw_data = false;
+        ccrf_top_level_scratchpad = false;
+    }
 
-    } while (0);
 }
 
 
@@ -90,74 +98,70 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
     //uintptr_t output_addr = CCRF_HARDWARE_SCRATCHPAD_START;
     static uint32_t scratchpad_offset = 0;
 
-    do {
-        if (!current_job_valid && !input_jobs.empty()) {
-            JobPackage current_job_package = input_jobs.read();
-            current_job = current_job_package.job_descriptor;
-            current_job_ID = current_job_package.job_ID;
-            current_job_valid = true;
-            ccrf_subtask_scheduler_got_data = true;
-        } else {
-        	ccrf_subtask_scheduler_got_data = false;
+    if (!current_job_valid && !input_jobs.empty()) {
+        JobPackage current_job_package = input_jobs.read();
+        current_job = current_job_package.job_descriptor;
+        current_job_ID = current_job_package.job_ID;
+        current_job_valid = true;
+        ccrf_subtask_scheduler_got_data = true;
+    } else {
+        ccrf_subtask_scheduler_got_data = false;
+    }
+
+    const int ADDR_BUFFER_SIZE = 10;
+    uintptr_t input_addresses[ADDR_BUFFER_SIZE];
+    uintptr_t output_addresses[ADDR_BUFFER_SIZE];
+
+    if (current_job_valid) {
+        const int image_size = current_job.IMAGE_SIZE();
+        const int ldr_image_count = current_job.LDR_IMAGE_COUNT;
+        for (int input = 0; input < ldr_image_count; input++) {
+            #pragma HLS PIPELINE
+            input_addresses[input] = current_job.INPUT_IMAGES[input];
         }
 
-        const int ADDR_BUFFER_SIZE = 10;
-        uintptr_t input_addresses[ADDR_BUFFER_SIZE];
-        uintptr_t output_addresses[ADDR_BUFFER_SIZE];
-
-        if (current_job_valid) {
-            const int image_size = current_job.IMAGE_SIZE();
-            const int ldr_image_count = current_job.LDR_IMAGE_COUNT;
-            for (int input = 0; input < ldr_image_count; input++) {
-                #pragma HLS PIPELINE
-                input_addresses[input] = current_job.INPUT_IMAGES[input];
+        for (int output = 0; output < ldr_image_count - 1; output++) {
+            //if (output_addr + (image_size * sizeof(PIXEL_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
+            if (CCRF_HARDWARE_SCRATCHPAD_START + scratchpad_offset + (image_size * sizeof(PIXEL_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
+                //output_addr = CCRF_HARDWARE_SCRATCHPAD_START;
+                scratchpad_offset = 0;
             }
-
-            for (int output = 0; output < ldr_image_count - 1; output++) {
-                //if (output_addr + (image_size * sizeof(PIXEL_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
-                if (CCRF_HARDWARE_SCRATCHPAD_START + scratchpad_offset + (image_size * sizeof(PIXEL_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
-                    //output_addr = CCRF_HARDWARE_SCRATCHPAD_START;
-                    scratchpad_offset = 0;
-                }
-                //output_addresses[output] = output_addr;
-                output_addresses[output] = CCRF_HARDWARE_SCRATCHPAD_START + scratchpad_offset;
-                //output_addr += image_size * sizeof(PIXEL_T);
-                scratchpad_offset += image_size * sizeof(PIXEL_T);
-            }
-
-            //while(jobs_in_progress.full());
-            JOB_COMPLETION_PACKET job_completion_packet = {current_job.OUTPUT_IMAGE_LOCATION, current_job_ID, current_job.IMAGE_SIZE()};
-            jobs_in_progress.write(job_completion_packet);
-            for (int layer = 0; layer < ldr_image_count - 1; layer++) {
-                const int num_outputs = ldr_image_count - layer - 1;
-                const bool last_task = (num_outputs == 1);
-                for (int input = 0; input < ldr_image_count - layer - 1; input++) {
-
-                    //while(subtask_queue.full()); 
-
-                    // The final output should go to the actual specified output location, not the scratchpad
-                    uintptr_t real_output_addr = (last_task) ? current_job.OUTPUT_IMAGE_LOCATION : output_addresses[input];
-                    JOB_SUBTASK new_subtask;
-                    new_subtask.input1 = input_addresses[input];
-                    new_subtask.input2 = input_addresses[input + 1];
-                    new_subtask.output = real_output_addr;
-                    ASSERT(real_output_addr + (image_size * sizeof(PIXEL_T)) < CCRF_HARDWARE_SCRATCHPAD_END, "Out of range output");
-                    new_subtask.image_size = image_size;
-                    new_subtask.job_ID = current_job_ID;
-                    ASSERT(new_subtask.image_size != 0, "Invalid subtask image_size");
-                    ASSERT(new_subtask.input1 != (uintptr_t)nullptr, "Invalid subtask input1");
-                    ASSERT(new_subtask.input2 != (uintptr_t)nullptr, "Invalid subtask input2");
-                    ASSERT(new_subtask.output != (uintptr_t)nullptr, "Invalid subtask output");
-                    subtask_queue.write(new_subtask);
-                }
-                if (!last_task) {
-                    std::swap(input_addresses, output_addresses);
-                }
-            }
-
-            current_job_valid = false;
+            //output_addresses[output] = output_addr;
+            output_addresses[output] = CCRF_HARDWARE_SCRATCHPAD_START + scratchpad_offset;
+            //output_addr += image_size * sizeof(PIXEL_T);
+            scratchpad_offset += image_size * sizeof(PIXEL_T);
         }
-    } while(0);
+
+        //while(jobs_in_progress.full());
+        JOB_COMPLETION_PACKET job_completion_packet = {current_job.OUTPUT_IMAGE_LOCATION, current_job_ID, current_job.IMAGE_SIZE()};
+        jobs_in_progress.write(job_completion_packet);
+        for (int layer = 0; layer < ldr_image_count - 1; layer++) {
+            const int num_outputs = ldr_image_count - layer - 1;
+            const bool last_task = (num_outputs == 1);
+            for (int input = 0; input < ldr_image_count - layer - 1; input++) {
+
+                // The final output should go to the actual specified output location, not the scratchpad
+                uintptr_t real_output_addr = (last_task) ? current_job.OUTPUT_IMAGE_LOCATION : output_addresses[input];
+                JOB_SUBTASK new_subtask;
+                new_subtask.input1 = input_addresses[input];
+                new_subtask.input2 = input_addresses[input + 1];
+                new_subtask.output = real_output_addr;
+                ASSERT(real_output_addr + (image_size * sizeof(PIXEL_T)) < CCRF_HARDWARE_SCRATCHPAD_END, "Out of range output");
+                new_subtask.image_size = image_size;
+                new_subtask.job_ID = current_job_ID;
+                ASSERT(new_subtask.image_size != 0, "Invalid subtask image_size");
+                ASSERT(new_subtask.input1 != (uintptr_t)nullptr, "Invalid subtask input1");
+                ASSERT(new_subtask.input2 != (uintptr_t)nullptr, "Invalid subtask input2");
+                ASSERT(new_subtask.output != (uintptr_t)nullptr, "Invalid subtask output");
+                subtask_queue.write(new_subtask);
+            }
+            if (!last_task) {
+                std::swap(input_addresses, output_addresses);
+            }
+        }
+
+        current_job_valid = false;
+    }
 }
 
 
@@ -175,40 +179,29 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
     static bool job_info_valid = false;
     static JOB_COMPLETION_PACKET job_info;
 
-    do {
-        if (!job_info_valid) {
-            if (!jobs_in_progress.empty()) {
-                JOB_COMPLETION_PACKET tmp_job_info = jobs_in_progress.read();
-                job_info = tmp_job_info;
-                job_info_valid = true;
-            } 
-        }
-
-        if (job_info_valid) {
-            if (completed_job_queue.full()) {
+    if (!job_info_valid && !jobs_in_progress.empty()) {
+        JOB_COMPLETION_PACKET tmp_job_info = jobs_in_progress.read();
+        job_info = tmp_job_info;
+        job_info_valid = true;
+    } else if (job_info_valid && !completed_job_queue.full()) {
+        bool job_completed = false;
+        for (int i = 0; !job_completed && i < CCRF_COMPUTE_UNIT_COUNT; i++) {
+            bool queue_empty = false;
+            queue_empty = completed_queues_from_ccrf_units[i].empty();
+            if (queue_empty) {
                 continue;
             }
-
-            bool job_completed = false;
-            for (int i = 0; !job_completed && i < CCRF_COMPUTE_UNIT_COUNT; i++) {
-                bool queue_empty = false;
-                queue_empty = completed_queues_from_ccrf_units[i].empty();
-                if (queue_empty) {
-                    continue;
-                }
-                //const PIXEL_T *const output_addr = CCRF_completed_outputs[i]->read();
-                uintptr_t output_addr = (uintptr_t)nullptr;
-                output_addr = completed_queues_from_ccrf_units[i].read();
-                job_completed = (output_addr == (uintptr_t)job_info.output_address);
-                if (job_completed) {
-                    completed_job_queue.write(job_info);
-                    job_info_valid = false;
-                    job_completed = true;
-                }
+            //const PIXEL_T *const output_addr = CCRF_completed_outputs[i]->read();
+            uintptr_t output_addr = (uintptr_t)nullptr;
+            output_addr = completed_queues_from_ccrf_units[i].read();
+            job_completed = (output_addr == (uintptr_t)job_info.output_address);
+            if (job_completed) {
+                completed_job_queue.write(job_info);
+                job_info_valid = false;
+                job_completed = true;
             }
         }
-
-    } while (0);
+    }
 }
 
 
@@ -334,42 +327,40 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
     static JOB_SUBTASK task_to_add;
     bool task_to_add_pending = false; // If we popped the task from the stream but couldn't run it last call
     
-    do {
-        if (!task_to_add_pending && !dispatcher_stream_in.empty()) {
-            task_to_add = dispatcher_stream_in.read();
-            task_to_add_pending = true;
-            ccrf_subtask_dispatcher_got_data = true;
-        } else {
-        	ccrf_subtask_dispatcher_got_data = false;
+    if (!task_to_add_pending && !dispatcher_stream_in.empty()) {
+        task_to_add = dispatcher_stream_in.read();
+        task_to_add_pending = true;
+        ccrf_subtask_dispatcher_got_data = true;
+    } else {
+        ccrf_subtask_dispatcher_got_data = false;
+    }
+
+    if (task_to_add_pending) {            
+        bool dependence_is_processing = DoesTaskWaitForDependencies(task_to_add, 
+                                                                    ccrf_unit_status_signals,
+                                                                    subtask_to_ccrf_queues);
+        if (dependence_is_processing) {
+            return;
         }
 
-        if (task_to_add_pending) {            
-            bool dependence_is_processing = DoesTaskWaitForDependencies(task_to_add, 
-                                                                        ccrf_unit_status_signals,
-                                                                        subtask_to_ccrf_queues);
-            if (dependence_is_processing) {
-                continue;
-            }
+        int available_ccrf_unit = GetAvailableCCRFUnit(ccrf_unit_status_signals, subtask_to_ccrf_queues);
+        if (available_ccrf_unit >= 0) {
 
-            int available_ccrf_unit = GetAvailableCCRFUnit(ccrf_unit_status_signals, subtask_to_ccrf_queues);
-            if (available_ccrf_unit >= 0) {
+            // Write the subtask to the available ccrf unit
+            ASSERT(task_to_add.input1 != (uintptr_t)nullptr, "Tried to push task with null input1");
+            ASSERT(task_to_add.input2 != (uintptr_t)nullptr, "Tried to push task with null input2");
+            ASSERT(task_to_add.output != (uintptr_t)nullptr, "Tried to push task with null output");
+            subtask_to_ccrf_queues[available_ccrf_unit].write(task_to_add);
 
-                // Write the subtask to the available ccrf unit
-                ASSERT(task_to_add.input1 != (uintptr_t)nullptr, "Tried to push task with null input1");
-                ASSERT(task_to_add.input2 != (uintptr_t)nullptr, "Tried to push task with null input2");
-                ASSERT(task_to_add.output != (uintptr_t)nullptr, "Tried to push task with null output");
-                subtask_to_ccrf_queues[available_ccrf_unit].write(task_to_add);
-
-                // reset state of task to add
-                task_to_add_pending = false;
-                task_to_add.input1 = (uintptr_t)nullptr;
-                task_to_add.input2 = (uintptr_t)nullptr;
-                task_to_add.output = (uintptr_t)nullptr;
-                task_to_add.image_size = 0;
-                task_to_add.image_size = 0;
-            }
+            // reset state of task to add
+            task_to_add_pending = false;
+            task_to_add.input1 = (uintptr_t)nullptr;
+            task_to_add.input2 = (uintptr_t)nullptr;
+            task_to_add.output = (uintptr_t)nullptr;
+            task_to_add.image_size = 0;
+            task_to_add.image_size = 0;
         }
-    } while (0);
+    }
 }
 
 
@@ -447,6 +438,9 @@ void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
     jobs_in_progress_queue_populated = !jobs_in_progress.empty();
     completed_jobs_queue_populated = !completed_jobs_queue.empty();
     ccrf_1_has_data = !ccrf_input_queues[0].empty();
+
+    Counter(counter_out);
+
     CcrfSchedulerTopLevel(incoming_job_requests, 
                           response_message_queue,
                           jobs_to_schedule_queue,
@@ -454,9 +448,7 @@ void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
 
 						  ccrf_top_level_saw_data,
 		                  ccrf_top_level_scratchpad,
-						  incoming_jobs_populated_in_top_level,
-
-						  counter_out
+						  incoming_jobs_populated_in_top_level
 						  );
 
     JobResultNotifier(completed_jobs_queue, 
