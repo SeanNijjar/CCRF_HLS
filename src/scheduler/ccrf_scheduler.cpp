@@ -15,7 +15,11 @@ uintptr_t CCRF_HARDWARE_SCRATCHPAD_END;
 void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests, 
                            hls::stream<JOB_STATUS_MESSAGE> &response_message_queue,
                            hls::stream<JobPackage> &jobs_to_schedule_queue,
-                           hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_queue)
+                           hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_queue,
+						   bool &ccrf_top_level_saw_data,
+						   bool &ccrf_top_level_scratchpad,
+						   bool &incoming_job_request_from_top_level_populated,
+						   ap_int<4> &counter_out)
 {
     DO_PRAGMA(HLS stream depth=RESPONSE_QUEUE_DEPTH variable=response_message_queue)
     #pragma HLS stream depth=8 variable=incoming_job_requests
@@ -24,7 +28,14 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
     //#pragma HLS INTERFACE ap_fifo port=incoming_job_requests
     //#pragma HLS INTERFACE ap_fifo port=response_message_queue
 
+	static ap_int<4> counter = 0;
+
+
     do {
+    	counter_out = counter++;
+
+    	incoming_job_request_from_top_level_populated = !incoming_job_requests.empty();
+
         if(!completed_jobs_queue.empty()) {
             JOB_COMPLETION_PACKET completed_job = completed_jobs_queue.read();
             JOB_STATUS_MESSAGE completion_packet_for_host;
@@ -42,12 +53,18 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
             if (job_request.job_ID == 0) { // Initialize the start and end addresses
                 CCRF_HARDWARE_SCRATCHPAD_START = job_request.job_descriptor.INPUT_IMAGES[0];
                 CCRF_HARDWARE_SCRATCHPAD_END = job_request.job_descriptor.INPUT_IMAGES[1];
+                ccrf_top_level_scratchpad = true;
             } else {
+            	ccrf_top_level_scratchpad = false;
                 response_message_queue.write(response_packet);
                 if (!jobs_to_schedule_queue.full()) {
                     jobs_to_schedule_queue.write(job_request);
                 } 
             }
+            ccrf_top_level_saw_data = true;
+        } else {
+        	ccrf_top_level_saw_data = false;
+        	ccrf_top_level_scratchpad = false;
         }
 
     } while (0);
@@ -56,7 +73,8 @@ void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests,
 
 void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs, 
                           hls::stream<JOB_SUBTASK> &subtask_queue, 
-                          hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress) 
+                          hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress,
+						  bool &ccrf_subtask_scheduler_got_data)
 {
     #pragma HLS INTERFACE ap_fifo port=input_jobs
     #pragma HLS INTERFACE ap_fifo port=subtask_queue
@@ -78,7 +96,10 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
             current_job = current_job_package.job_descriptor;
             current_job_ID = current_job_package.job_ID;
             current_job_valid = true;
-        } 
+            ccrf_subtask_scheduler_got_data = true;
+        } else {
+        	ccrf_subtask_scheduler_got_data = false;
+        }
 
         const int ADDR_BUFFER_SIZE = 10;
         uintptr_t input_addresses[ADDR_BUFFER_SIZE];
@@ -303,7 +324,8 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
 
 void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in, 
                            CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_COMPUTE_UNIT_COUNT],
-                           hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
+                           hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT],
+						   bool &ccrf_subtask_dispatcher_got_data
 )                          
 {
     #pragma HLS INTERFACE ap_fifo port=dispatcher_stream_in
@@ -316,6 +338,9 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
         if (!task_to_add_pending && !dispatcher_stream_in.empty()) {
             task_to_add = dispatcher_stream_in.read();
             task_to_add_pending = true;
+            ccrf_subtask_dispatcher_got_data = true;
+        } else {
+        	ccrf_subtask_dispatcher_got_data = false;
         }
 
         if (task_to_add_pending) {            
@@ -350,7 +375,23 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
 
 
 void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
-                 hls::stream<JOB_STATUS_MESSAGE_AXI> &response_message_queue_axi
+                 hls::stream<JOB_STATUS_MESSAGE_AXI> &response_message_queue_axi,
+				 bool &incoming_jobs_queue_populated,
+				 bool &jobs_to_schedule_queue_populated,
+				 bool &subtask_queue_populated,
+				 bool &jobs_in_progress_queue_populated,
+				 bool &completed_jobs_queue_populated,
+				 bool &ccrf_1_has_data,
+
+				 bool &ccrf_top_level_saw_data,
+                 bool &ccrf_top_level_scratchpad,
+
+				 bool &ccrf_subtask_scheduler_got_data,
+				 bool &ccrf_dispatcher_got_data,
+				 bool &incoming_jobs_populated_in_top_level,
+
+				 ap_int<4> &counter_out,
+				 ap_int<4> &counter_out_2
                  )
 //,                 BYTE_T *const memory_bus)
 {
@@ -376,14 +417,47 @@ void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
     #pragma HLS STREAM variable=jobs_in_progress depth=4
     #pragma HLS STREAM variable=subtask_queue depth=32
 
+    #pragma HLS ARRAY_PARTITION variable=ccrf_unit_status_signals
 
+    #pragma HLS INTERFACE ap_none port=return
+    #pragma HLS INTERFACE ap_none port=incoming_jobs_queue_populated
+    #pragma HLS INTERFACE ap_none port=jobs_to_schedule_queue_populated
+    #pragma HLS INTERFACE ap_none port=subtask_queue_populated
+    #pragma HLS INTERFACE ap_none port=jobs_in_progress_queue_populated
+    #pragma HLS INTERFACE ap_none port=completed_jobs_queue_populated
+    #pragma HLS INTERFACE ap_none port=ccrf_1_has_data
 
-    //while(1) {
-    #pragma HLS DATAFLOW
+    #pragma HLS INTERFACE ap_none port=ccrf_top_level_saw_data
+    #pragma HLS INTERFACE ap_none port=ccrf_top_level_scratchpad
+
+    #pragma HLS INTERFACE ap_none port=ccrf_subtask_scheduler_got_data
+    #pragma HLS INTERFACE ap_none port=ccrf_dispatcher_got_data
+    #pragma HLS INTERFACE ap_none port=incoming_jobs_populated_in_top_level
+
+    #pragma HLS INTERFACE ap_none port=counter_out
+    #pragma HLS INTERFACE ap_none port=counter_out_2
+
+    static ap_int<4> counter_2 = 0;
+    //do {
+    counter_out_2 = ++counter_2;
+    
+    incoming_jobs_queue_populated = !incoming_job_requests.empty();
+    jobs_to_schedule_queue_populated = !jobs_to_schedule_queue.empty();
+    subtask_queue_populated = !subtask_queue.empty();
+    jobs_in_progress_queue_populated = !jobs_in_progress.empty();
+    completed_jobs_queue_populated = !completed_jobs_queue.empty();
+    ccrf_1_has_data = !ccrf_input_queues[0].empty();
     CcrfSchedulerTopLevel(incoming_job_requests, 
                           response_message_queue,
                           jobs_to_schedule_queue,
-                          completed_jobs_queue);
+                          completed_jobs_queue,
+
+						  ccrf_top_level_saw_data,
+		                  ccrf_top_level_scratchpad,
+						  incoming_jobs_populated_in_top_level,
+
+						  counter_out
+						  );
 
     JobResultNotifier(completed_jobs_queue, 
                       jobs_in_progress, 
@@ -393,16 +467,18 @@ void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
 
     CcrfSubtaskScheduler(jobs_to_schedule_queue, 
                          subtask_queue, 
-                         jobs_in_progress);
+                         jobs_in_progress,
+						 ccrf_subtask_scheduler_got_data
+						 );
 
     CcrfSubtaskDispatcher(subtask_queue,
                           ccrf_unit_status_signals,
-                          ccrf_input_queues
-                          );
+                          ccrf_input_queues,
+						  ccrf_dispatcher_got_data
+						  );
 
     for (int i = 0; i < CCRF_COMPUTE_UNIT_COUNT; i++) {
         #pragma HLS UNROLL
-        #pragma HLS ARRAY_PARTITION variable=ccrf_unit_status_signals
         Run_CCRF(ccrf_unit_status_signals[i],
                 ccrf_input_queues[i],
                 ccrf_output_queues[i]
@@ -410,20 +486,20 @@ void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests,
         		);
     }
     
-    if (!response_message_queue.empty()) {
-        JOB_STATUS_MESSAGE response_message_reply = response_message_queue.read();
+    if (!response_message_queue.empty() && !incoming_job_requests.empty()) {
+    	JOB_STATUS_MESSAGE response_message_reply = response_message_queue.read();
         uint32_t response_message_reply_bits = *(uint16_t*)&response_message_reply;
         #pragma HLS DATA_PACK variable=response_message_reply
         JOB_STATUS_MESSAGE_AXI axi_stream_packet;
         axi_stream_packet.last = ap_uint<1>(true);
         axi_stream_packet.data = ap_int<32>(response_message_reply_bits);
         axi_stream_packet.id = ap_int<1>(0);
-        axi_stream_packet.keep = 0x00;
+        axi_stream_packet.keep = 0xFF;
         axi_stream_packet.strb = 0;
         axi_stream_packet.dest = 0;
         axi_stream_packet.user = 0;
 
         response_message_queue_axi.write(axi_stream_packet);
     }
-   // }
+  //} while(1);
 }

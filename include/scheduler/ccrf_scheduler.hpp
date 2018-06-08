@@ -21,6 +21,7 @@ static_assert(RESPONSE_QUEUE_DEPTH >= COMPLETED_JOBS_QUEUE_DEPTH, "RESPONSE_QUEU
 const int JOBS_TO_SCHEDULE_QUEUE_DEPTH = 16;
 
 typedef ap_axis<32, 1, 1, 1> JOB_STATUS_MESSAGE_AXI;
+typedef ap_axis<496, 1, 1, 1> JOB_PACKAGE_AXI;
 
 template <typename STREAM_CLASS>
 bool CcrfQueuesBusy(int queue_id, 
@@ -75,7 +76,7 @@ void CcrfSubtaskDispatcher_StaticWrapper(hls::stream<JOB_SUBTASK> &dispatcher_st
                                          hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
 );
 
-void CcrfWrapper(hls::stream<JobPackage> &incoming_job_requests, 
+void CcrfWrapper(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests, 
                  hls::stream<JOB_STATUS_MESSAGE_AXI> &response_message_queue
                  //,BYTE_T *const memory_bus
                  );
