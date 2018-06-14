@@ -91,27 +91,27 @@ bool JobDispatcher::JobResponseQueueHasData()
     #endif
 }
 
-JOB_STATUS_MESSAGE JobDispatcher::ReadJobStatusMessage()
+bool JobDispatcher::ReadJobStatusMessage(JOB_STATUS_MESSAGE &read_message)
 {
+    bool status = false;
     #ifdef ZYNQ_COMPILE
-    JOB_STATUS_MESSAGE response_message;
     #ifndef LOOPBACK_TEST
-    driver.ReadResponseQueuePacket((uint8_t*)&response_message, sizeof(JOB_STATUS_MESSAGE));
+    status = driver.ReadResponseQueuePacket((uint8_t*)&read_message, sizeof(JOB_STATUS_MESSAGE));
     #else
     int response_message_int;
-    driver.ReadResponseQueuePacket((uint8_t*)&response_message_int, sizeof(JOB_STATUS_MESSAGE));
+    status = driver.ReadResponseQueuePacket((uint8_t*)&response_message_int, sizeof(JOB_STATUS_MESSAGE));
     std::cout << "Response packet: " << response_message_int << std::endl;
-    response_message.packet_message_type = (response_message_int & 0xFF);
-    response_message.job_ID = ((response_message_int >> 8)& 0xFF);
+    read_message.packet_message_type = (response_message_int & 0xFF);
+    read_message.job_ID = ((response_message_int >> 8)& 0xFF);
     #endif
-    return response_message;
     #else
     while (incoming_job_status_queue.empty());
     ASSERT(incoming_job_status_queue.size(), "Incoming job queue empty");
-    JOB_STATUS_MESSAGE message = incoming_job_status_queue.front();
+    read_message = incoming_job_status_queue.front();
     incoming_job_status_queue.erase(incoming_job_status_queue.begin());
-    return message;
+    status = true;
     #endif
+    return status;
 }
 
 void JobDispatcher::MainDispatcherThreadLoop()
@@ -149,9 +149,12 @@ void JobDispatcher::MainDispatcherThreadLoop()
 
         did_something_this_iteration = TryDispatchJob() || did_something_this_iteration;
 
-        if (did_something_this_iteration || JobResponseQueueHasData()) {
+        JOB_STATUS_MESSAGE job_status;
+        bool read_successful = ReadJobStatusMessage(job_status);
+
+        if (read_successful) {
             // Remove the job from the set of active jobs
-            JOB_STATUS_MESSAGE job_status = ReadJobStatusMessage();
+    
             #ifdef LOOPBACK_TEST
             ASSERT((uint8_t)job_status.packet_message_type == (uint8_t)(pending_jobs.front().job_ID & 0xFF), "LOOPBACK RESULT ERROR packet_message_type " << (unsigned int)job_status.packet_message_type << "!=" << (unsigned int)(pending_jobs.front().job_ID & 0xFF));
             ASSERT((uint8_t)job_status.job_ID == (uint8_t)((pending_jobs.front().job_ID >> 8) & 0xFF), "LOOPBACK RESULT ERROR job_ID " << (unsigned int)job_status.job_ID << "!=" << (unsigned int)((pending_jobs.front().job_ID >> 8) & 0xFF));

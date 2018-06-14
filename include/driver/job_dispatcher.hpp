@@ -94,7 +94,7 @@ class JobDispatcher
   private:
     bool JobResponseQueueHasData();
 
-    JOB_STATUS_MESSAGE ReadJobStatusMessage();
+    bool ReadJobStatusMessage(JOB_STATUS_MESSAGE &read_message);
 
     bool IncomingJobResponseQueueHasData();
 
