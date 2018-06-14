@@ -21,7 +21,7 @@ static_assert(RESPONSE_QUEUE_DEPTH >= COMPLETED_JOBS_QUEUE_DEPTH, "RESPONSE_QUEU
 const int JOBS_TO_SCHEDULE_QUEUE_DEPTH = 16;
 
 typedef ap_axis<32, 1, 1, 1> JOB_STATUS_MESSAGE_AXI;
-typedef ap_axis<496, 1, 1, 1> JOB_PACKAGE_AXI;
+typedef ap_axis<sizeof(JobPackage)*8, 1, 1, 1> JOB_PACKAGE_AXI;
 
 template <typename STREAM_CLASS>
 bool CcrfQueuesBusy(int queue_id, 
@@ -29,35 +29,47 @@ bool CcrfQueuesBusy(int queue_id,
 )
 {
     #pragma HLS INLINE
+    #pragma HLS ARRAY_PARTITION variable=subtask_to_ccrf_queues
+    #ifdef __SYNTHESIS__
+    bool queue_busy = subtask_to_ccrf_queues[queue_id].full();
+    #else
     bool queue_busy = !subtask_to_ccrf_queues[queue_id].empty();
+    #endif
     return queue_busy;
 }
 
-void CcrfSchedulerTopLevel(hls::stream<JobPackage> &incoming_job_requests, 
+
+
+void CcrfSchedulerTopLevel(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
                            hls::stream<JOB_STATUS_MESSAGE> &response_message_queue,
                            hls::stream<JobPackage> &jobs_to_schedule_queue,
-                           hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_queue);
+                           hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_queue,
+
+						   uintptr_t &CCRF_HARDWARE_SCRATCHPAD_START_OUT,
+						   uintptr_t &CCRF_HARDWARE_SCRATCHPAD_END_OUT,
+
+						   bool &ccrf_top_level_saw_data,
+						   bool &ccrf_top_level_scratchpad,
+						   bool &incoming_job_request_from_top_level_populated,
+						   bool &adding_to_jobs_in_progress,
+
+                           int &jobs_ID_offset);
 
 void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
                        hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress, 
-                       CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
-                       hls::stream<uintptr_t> completed_queues_from_ccrf_units[CCRF_COMPUTE_UNIT_COUNT]
-);
-
-void JobResultsNotifier_StaticWrapper(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue, 
-                       hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress,
-                       CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
-                       hls::stream<uintptr_t> completed_subtasks_queues[CCRF_COMPUTE_UNIT_COUNT]
-);
+                       hls::stream<uintptr_t> completed_queues_from_ccrf_units[CCRF_COMPUTE_UNIT_COUNT],
+					   bool &job_result_notifier_job_in_progress,
+			           bool &job_result_notifier_completed_job_queue
+					   );
 
 void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs, 
                           hls::stream<JOB_SUBTASK> &subtask_queue, 
-                          hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress);
+                          hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress,
+						  bool &ccrf_subtask_scheduler_got_data);
 
 int GetAvailableCCRFUnit(CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
                          hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
 );
-
 
 /* Assumes all HDR images are the same size. Doesn't perform an overlap test */
 bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check, 
@@ -66,19 +78,31 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
 );
 
 void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream_in, 
-                           CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
-                           hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
-);
+                           CCRF_UNIT_STATUS_SIGNALS ccrf_unit_status_signals[CCRF_COMPUTE_UNIT_COUNT],
+                           hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT],
+						   bool &ccrf_subtask_dispatcher_got_data);
 
+void CcrfWrapper(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
+                 hls::stream<JOB_STATUS_MESSAGE_AXI> &response_message_queue_axi,
+				 bool &incoming_jobs_queue_populated,
+				 bool &jobs_to_schedule_queue_populated,
+				 bool &subtask_queue_populated,
+				 bool &jobs_in_progress_queue_populated,
+				 bool &completed_jobs_queue_populated,
+				 bool &ccrf_1_has_data,
 
-void CcrfSubtaskDispatcher_StaticWrapper(hls::stream<JOB_SUBTASK> &dispatcher_stream_in,
-                                         CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
-                                         hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
-);
+				 bool &ccrf_top_level_saw_data,
+                 bool &ccrf_top_level_scratchpad,
 
-void CcrfWrapper(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests, 
-                 hls::stream<JOB_STATUS_MESSAGE_AXI> &response_message_queue
-                 //,BYTE_T *const memory_bus
+				 bool &ccrf_subtask_scheduler_got_data,
+				 bool &ccrf_dispatcher_got_data,
+				 bool &incoming_jobs_populated_in_top_level,
+
+				 ap_int<4> &counter_out,
+				 ap_int<4> &counter_out_2,
+
+				 bool &job_result_notifier_job_in_progress,
+				 bool &job_result_notifier_completed_job_queue
                  );
 
 #endif

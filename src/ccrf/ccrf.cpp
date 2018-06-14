@@ -1,14 +1,19 @@
 #include "ccrf.hpp"
 
 void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals, 
-              hls::stream<JOB_SUBTASK> &input_subtask_queue, 
+              hls::stream<JOB_SUBTASK> &input_subtask_queue,
               hls::stream<uintptr_t> &output_subtask_queue)
 //,              BYTE_T *const memory_bus)
 {
     //#pragma HLS INTERFACE m_axi port=memory_bus depth=2147483648 offset=slave
-    #pragma HLS INTERFACE ap_none port=status_signals
     #pragma HLS STREAM variable=input_subtask_queue depth=1
     #pragma HLS STREAM variable=output_subtask_queue depth=1
+    #pragma HLS INTERFACE ap_none port=status_signals
+    #pragma HLS DATA_PACK variable=input_subtask_queue struct_level
+    #pragma HLS DATA_PACK variable=status_signals struct_level
+    #pragma HLS DATA_PACK variable=output_subtask_queue struct_level
+    #pragma HLS RESOURCE core=axis variable=input_subtask_queue
+    #pragma HLS RESOURCE core=axis variable=output_subtask_queue
     bool started = false;
     if (!started) {
         #pragma HLS UNROLL
@@ -22,7 +27,6 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
         started = true;
     }
 
-    do {
         if (!input_subtask_queue.empty()) {
             ASSERT(!status_signals.is_processing, "Tried to start a new job on an already busy CCRF unit");
             status_signals.is_processing = true;
@@ -59,5 +63,4 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
             
 
         }
-    } while(0);
 }

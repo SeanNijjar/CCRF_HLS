@@ -18,6 +18,9 @@ struct JobDescriptor
 	uint16_t IMAGE_WIDTH;
 	uint16_t IMAGE_HEIGHT;
     uint8_t LDR_IMAGE_COUNT;   // Number of LDR images that correspond to the single output HDR frame
+    uint8_t dummy1;
+    uint8_t dummy2;
+    uint8_t dummy3;
 
     int IMAGE_SIZE() const
     {
