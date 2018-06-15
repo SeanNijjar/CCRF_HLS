@@ -7,7 +7,6 @@ reg RESETN;
 wire incoming_jobs_queue_populated;
 wire jobs_to_schedule_queue_populated;
 wire subtask_queue_populated;
-wire jobs_in_progress_queue_populated;
 wire completed_jobs_queue_populated;
 wire ccrf_1_has_data;
 wire ccrf_top_level_saw_data;
@@ -31,19 +30,17 @@ wire [0 : 0] response_message_queue_axi_V_TDEST;
 wire ccrf_top_level_saw_data_ap_vld;
 wire ccrf_top_level_scratchpad_ap_vld;
 wire incoming_job_request_from_top_level_populated;
-wire incoming_job_request_from_top_level_populated_ap_vld;
 
 reg incoming_job_requests_V_TVALID;
 reg response_message_queue_axi_V_TREADY;
 wire incoming_job_requests_V_TREADY; // output from dut
-reg [495:0] incoming_job_requests_V_TDATA;
+reg [575:0] incoming_job_requests_V_TDATA;
 reg ap_start;
 wire ap_ready; // output from dut
 wire ap_done; // output from dut
 wire ap_idle; // output from dut
 
 
-wire completed_jobs_queue_V_TREADY;
 reg [103:0] completed_jobs_queue_V_TDATA;
 reg jobs_to_schedule_queue_V_TREADY;
 reg completed_jobs_queue_V_TVALID;
@@ -63,7 +60,7 @@ initial begin
   RESETN = 0;
   completed_jobs_queue_V_TDATA = 104'b0;
   completed_jobs_queue_V_TVALID = 1'b0;
-  incoming_job_requests_V_TDATA = 496'd0;
+  incoming_job_requests_V_TDATA = {576{1'b1}};
   incoming_job_requests_V_TVALID = 1'b0;
   ap_start = 0;
   response_message_queue_axi_V_TREADY = 1'b0;
@@ -83,32 +80,52 @@ initial begin
 
   #100 
   RESETN = 1'b1;
-  incoming_job_requests_V_TDATA = 496'd0;
+  incoming_job_requests_V_TDATA = {576{1'b1}};
   response_message_queue_axi_V_TREADY = 1'b1;
   jobs_to_schedule_queue_V_TREADY = 1'b1;
   ap_start = 1'b1;
   
   #40
+  // Send the CCRF_SCRATCHPAD_(START|END) addresses
+  incoming_job_requests_V_TDATA = {576{1'b1}};
+  incoming_job_requests_V_TDATA[519:512] = 8'd0; // job_ID
+  //incoming_job_requests_V_TDATA[495:488] = 8'd0; // job_ID
+  incoming_job_requests_V_TDATA[(16*8)-1:8*8] = 64'd1000;
+  incoming_job_requests_V_TDATA[(24*8)-1:16*8] = 64'd100000;
   incoming_job_requests_V_TVALID = 1'b1;
-  incoming_job_requests_V_TDATA[487:0] = 488'd99;
-  incoming_job_requests_V_TDATA[495:488] = 8'd1;
+  #10
+  incoming_job_requests_V_TVALID = 1'b0;// Terminate the write
+  incoming_job_requests_V_TDATA = {576{1'b1}};
+  
+  #40
+  incoming_job_requests_V_TVALID = 1'b1;
+  incoming_job_requests_V_TDATA = {576{1'b1}};
+  incoming_job_requests_V_TDATA[519:512] = 8'd1; // Send an LDR image stack; jobID == 1
+  //incoming_job_requests_V_TDATA[495:488] = 8'd1; // Send an LDR image stack; jobID == 1
+  incoming_job_requests_V_TDATA[(8*8)-1:0*8] = 64'd100000000; // OUTPUT
+  incoming_job_requests_V_TDATA[(16*8)-1:8*8] = 64'd10000; // INPUT1
+  incoming_job_requests_V_TDATA[(24*8)-1:16*8] = 64'd20000; // INPUT2
+  incoming_job_requests_V_TDATA[(32*8)-1:24*8] = 64'd30000; // INPUT3
+  incoming_job_requests_V_TDATA[(40*8)-1:32*8] = 64'd40000; // INPUT4
+  incoming_job_requests_V_TDATA[(48*8)-1:40*8] = 64'd50000; // INPUT5
+  incoming_job_requests_V_TDATA[(8*(8*7)) + 16 - 1: (8*(8*7))] = 16'd100; // IMAGE WIDTH
+  incoming_job_requests_V_TDATA[(8*(8*7)) + 32 - 1: (8*(8*7)) + 16] = 16'd100; // IMAGE HEIGHT
+  incoming_job_requests_V_TDATA[(8*(8*7)) + 40 - 1: (8*(8*7)) + 32] = 8'd5; // IMAGE COUNT
   response_message_queue_axi_V_TREADY = 1'b1;
   #10
   incoming_job_requests_V_TVALID = 1'b0;
-  incoming_job_requests_V_TDATA = 496'b0;
+  incoming_job_requests_V_TDATA = {576{1'b1}};
   response_message_queue_axi_V_TREADY = 1'b1;
 
   #1000 $finish;
 end
 
 /* Instantiation of top level design */
-CcrfTopLevel dut (
+
+CcrfWrapperBlockDesign dut (
     .ccrf_top_level_saw_data(ccrf_top_level_saw_data),
-    .ccrf_top_level_saw_data_ap_vld(ccrf_top_level_saw_data_ap_vld),
     .ccrf_top_level_scratchpad(ccrf_top_level_scratchpad),
-    .ccrf_top_level_scratchpad_ap_vld(ccrf_top_level_scratchpad_ap_vld),
     .incoming_job_request_from_top_level_populated(incoming_job_request_from_top_level_populated),
-    .incoming_job_request_from_top_level_populated_ap_vld(incoming_job_request_from_top_level_populated_ap_vld),
     .incoming_job_requests_V_tvalid(incoming_job_requests_V_TVALID),
     .incoming_job_requests_V_tready(incoming_job_requests_V_TREADY),
     .incoming_job_requests_V_tdata(incoming_job_requests_V_TDATA),
@@ -124,37 +141,6 @@ CcrfTopLevel dut (
     .aclk(CLK),
     .aresetn(RESETN)
     );
-
-/*
-CcrfTopLevel dut (
-    .ccrf_top_level_saw_data(ccrf_top_level_saw_data),
-    .ccrf_top_level_saw_data_ap_vld(ccrf_top_level_saw_data_ap_vld),
-    .ccrf_top_level_scratchpad(ccrf_top_level_scratchpad),
-    .ccrf_top_level_scratchpad_ap_vld(ccrf_top_level_scratchpad_ap_vld),
-    .incoming_job_request_from_top_level_populated(incoming_job_request_from_top_level_populated),
-    .incoming_job_request_from_top_level_populated_ap_vld(incoming_job_request_from_top_level_populated_ap_vld),
-    .completed_jobs_queue_V_TVALID(completed_jobs_queue_V_TVALID),
-    .completed_jobs_queue_V_TREADY(completed_jobs_queue_V_TREADY),
-    .completed_jobs_queue_V_TDATA(completed_jobs_queue_V_TDATA),
-    .incoming_job_requests_V_TVALID(incoming_job_requests_V_TVALID),
-    .incoming_job_requests_V_TREADY(incoming_job_requests_V_TREADY),
-    .incoming_job_requests_V_TDATA(incoming_job_requests_V_TDATA),
-    .jobs_to_schedule_queue_V_TVALID(jobs_to_schedule_queue_V_TVALID),
-    .jobs_to_schedule_queue_V_TREADY(jobs_to_schedule_queue_V_TREADY),
-    .jobs_to_schedule_queue_V_TDATA(jobs_to_schedule_queue_V_TDATA),
-    .response_message_queue_V_TVALID(response_message_queue_axi_V_TVALID),
-    .response_message_queue_V_TREADY(response_message_queue_axi_V_TREADY),
-    .response_message_queue_V_TDATA(response_message_queue_axi_V_TDATA),
-    .response_message_queue_V_TKEEP(response_message_queue_axi_V_TKEEP),
-    .response_message_queue_V_TSTRB(response_message_queue_axi_V_TSTRB),
-    .response_message_queue_V_TUSER(response_message_queue_axi_V_TUSER),
-    .response_message_queue_V_TLAST(response_message_queue_axi_V_TLAST),
-    .response_message_queue_V_TID(response_message_queue_axi_V_TID),
-    .response_message_queue_V_TDEST(response_message_queue_axi_V_TDEST),
-    .aclk(CLK),
-    .aresetn(RESETN)
-    );
-*/
 
 
 endmodule
