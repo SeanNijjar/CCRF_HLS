@@ -55,6 +55,8 @@ struct JOB_STATUS_MESSAGE
 
     uint8_t packet_message_type;
     JOB_ID_T job_ID;
+    uint8_t dummy1;
+    uint8_t dummy2;
 };
 
 struct JOB_COMPLETION_PACKET {

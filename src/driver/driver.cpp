@@ -170,12 +170,13 @@ bool ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffe
                                     job_status_axidma_buffer, 
                                     job_status_axidma_buffer_size, 
                                     true);
+    if (rc == 0) {
+        memcpy(response_message_buffer, job_status_axidma_buffer, job_status_axidma_buffer_size);
+        #ifdef LOOPBACK_TEST
+        std::cout << "Reading response packet: " << *(int*)response_message_buffer << std::endl;
+        #endif
+    }
 
-    memcpy(response_message_buffer, job_status_axidma_buffer, job_status_axidma_buffer_size);
-
-    #ifdef LOOPBACK_TEST
-    std::cout << "Reading response packet: " << *(int*)response_message_buffer << std::endl;
-    #endif
     return (rc == 0) ? true : false;
 }
 

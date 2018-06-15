@@ -129,7 +129,6 @@ void JobDispatcher::MainDispatcherThreadLoop()
         initialization_message.job_descriptor.INPUT_IMAGES[0] = scratchpad_start_addr;
         initialization_message.job_descriptor.INPUT_IMAGES[1] = scratchpad_end_addr;
         outgoing_job_queue.push_back(initialization_message);
-        //driver.SendJobRequest(initialization_message);
     }
     #endif
 
