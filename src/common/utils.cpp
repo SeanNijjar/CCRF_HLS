@@ -1,5 +1,5 @@
 #include "utils.hpp"
-
+#include "helper.hpp"
 // for the .cpp
 #include <iostream>
 #include <fstream>
@@ -71,7 +71,17 @@ IMAGE_T ReadImageFile(std::string image_file_path)
             }
         }
         //memcpy(image_matrix_data, image_matrix.data, pixel_count * sizeof(PIXEL_T));
+
+        ASSERT(image_matrix_data[0][0] == image_matrix.data[0], "pixel value mismatch after preprocessing");
+        ASSERT(image_matrix_data[0][1] == image_matrix.data[1], "pixel value mismatch after preprocessing");
+        ASSERT(image_matrix_data[0][2] == image_matrix.data[2], "pixel value mismatch after preprocessing");
+        ASSERT(image_matrix_data[1][0] == image_matrix.data[3], "pixel value mismatch after preprocessing");
+        ASSERT(image_matrix_data[1][1] == image_matrix.data[4], "pixel value mismatch after preprocessing");
+        ASSERT(image_matrix_data[1][2] == image_matrix.data[5], "pixel value mismatch after preprocessing");
     }
+
+    
+
     return {(PIXEL_T*)image_matrix_data, image_matrix.rows, image_matrix.cols};
 }
 
