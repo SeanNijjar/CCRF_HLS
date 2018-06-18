@@ -512,7 +512,7 @@ void CcrfSubtaskDispatcher(hls::stream<JOB_SUBTASK> &dispatcher_stream,
 }
 
 
-
+/*
 void CcrfWrapper(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
                  hls::stream<JOB_STATUS_MESSAGE_AXI> &response_message_queue_axi,
 				 bool &incoming_jobs_queue_populated,
@@ -582,7 +582,7 @@ void CcrfWrapper(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
 	uintptr_t scratch_end;
     static ap_int<4> counter_2 = 0;
     counter_out_2 = ++counter_2;
-    
+
 
     incoming_jobs_queue_populated = !incoming_job_requests.empty();
     jobs_to_schedule_queue_populated = !jobs_to_schedule_queue.empty();
@@ -619,7 +619,7 @@ void CcrfWrapper(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
 						  jobs_ID_offset
 						  );
 
-    JobResultNotifier(completed_jobs_queue, 
+    JobResultNotifier(completed_jobs_queue,
                       jobs_in_progress,
                       ccrf_output_queues,
 
@@ -627,8 +627,8 @@ void CcrfWrapper(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
 					  job_result_notifier_completed_job_queue
                       );
 
-    CcrfSubtaskScheduler(jobs_to_schedule_queue, 
-                         subtask_queue, 
+    CcrfSubtaskScheduler(jobs_to_schedule_queue,
+                         subtask_queue,
                          jobs_in_progress,
 
 						 scratch_start,
@@ -657,22 +657,23 @@ void CcrfWrapper(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
 				//,memory_bus
         		);
     }
-    
-    /*
-    if (!response_message_queue.empty() && !incoming_job_requests.empty()) {
-    	JOB_STATUS_MESSAGE response_message_reply = response_message_queue.read();
-        uint32_t response_message_reply_bits = *(uint16_t*)&response_message_reply;
-        #pragma HLS DATA_PACK variable=response_message_reply
-        JOB_STATUS_MESSAGE_AXI axi_stream_packet;
-        axi_stream_packet.last = ap_uint<1>(true);
-        axi_stream_packet.data = ap_int<32>(response_message_reply_bits);
-        axi_stream_packet.id = ap_int<1>(0);
-        axi_stream_packet.keep = 0xFF;
-        axi_stream_packet.strb = 0;
-        axi_stream_packet.dest = 0;
-        axi_stream_packet.user = 0;
 
-        response_message_queue_axi.write(axi_stream_packet);
-    }
-    */
+    //
+    //if (!response_message_queue.empty() && !incoming_job_requests.empty()) {
+    //	JOB_STATUS_MESSAGE response_message_reply = response_message_queue.read();
+    //    uint32_t response_message_reply_bits = *(uint16_t*)&response_message_reply;
+    //    #pragma HLS DATA_PACK variable=response_message_reply
+    //    JOB_STATUS_MESSAGE_AXI axi_stream_packet;
+    //    axi_stream_packet.last = ap_uint<1>(true);
+    //    axi_stream_packet.data = ap_int<32>(response_message_reply_bits);
+    //    axi_stream_packet.id = ap_int<1>(0);
+    //    axi_stream_packet.keep = 0xFF;
+    //    axi_stream_packet.strb = 0;
+    //    axi_stream_packet.dest = 0;
+    //    axi_stream_packet.user = 0;
+    //
+    //    response_message_queue_axi.write(axi_stream_packet);
+    //}
+    //
 }
+*/
