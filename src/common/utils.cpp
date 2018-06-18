@@ -43,7 +43,7 @@ IMAGE_STACK_T ReadImageStackImages(std::string image_stack_file_list)
 
 bool WriteImageToFile(IMAGE_T image, std::string image_file_path)
 {
-    cv::Mat image_data(cv::Size(image.height, image.width), CV_8UC3, image.data);
+    cv::Mat image_data(cv::Size(image.height, image.width), CV_8UC4, image.data);
     bool write_result = cv::imwrite(image_file_path, image_data);//, CV_LOAD_IMAGE_COLOR);
     if (!write_result) {
         std::cout << "Couldn't write image file " << image_file_path << std::endl;
@@ -57,14 +57,23 @@ IMAGE_T ReadImageFile(std::string image_file_path)
 {    
     // TODO: make it allocate new memory for each LDR image
     cv::Mat image_matrix = cv::imread(image_file_path);
-    PIXEL_T* image_matrix_data = nullptr;
+    PIXEL4_T* image_matrix_data = nullptr;
     if (!image_matrix.data) {
         std::cout << "Couldn't open image file " << image_file_path << std::endl;
     } else {    
         const int pixel_count = image_matrix.rows * image_matrix.cols;
-        image_matrix_data = new PIXEL_T[pixel_count];
-        memcpy(image_matrix_data, image_matrix.data, pixel_count * sizeof(PIXEL_T));
+        image_matrix_data = new PIXEL4_T[pixel_count];
+        for (int pixel = 0; pixel < pixel_count; pixel++) {
+            PIXEL4_T pixel4_data;
+            memcpy(&pixel4_data, &image_matrix.data[pixel], sizeof(PIXEL_T));
+            for (int channel = 0; channel < 4; channel++) {
+                image_matrix_data[pixel][channel] = pixel4_data[channel];
+            }
+        }
+        //memcpy(image_matrix_data, image_matrix.data, pixel_count * sizeof(PIXEL_T));
     }
     return {(PIXEL_T*)image_matrix_data, image_matrix.rows, image_matrix.cols};
 }
+
+
 
