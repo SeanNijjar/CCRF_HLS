@@ -20,8 +20,12 @@ struct CCRF_UNIT_STATUS_SIGNALS
 
 };
 
+typedef struct {
+    BYTE_T data[16];
+} WIDE_DATA_T;
+
 const int MEMORY_SIZE = 2000000000;
-const int CCRF_LUT_SIZE = 8 * 196608;
+const int CCRF_LUT_SIZE = 65536;
 
 void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
               hls::stream<JOB_SUBTASK> &input_subtask_queue,
@@ -78,8 +82,8 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
 			  BYTE_T memory[MEMORY_SIZE],
 
               bool &ccrf_got_data,
-              bool &ccrf_sent_data
-              //,BYTE_T *const memory_bus
+              bool &ccrf_sent_data,
+              const WIDE_DATA_T * memory_bus
               );
 
 

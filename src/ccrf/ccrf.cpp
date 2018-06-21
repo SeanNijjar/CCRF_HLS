@@ -21,54 +21,20 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
 			  const BYTE_T CCRF_LUT_GREEN3[CCRF_LUT_SIZE],
 			  const BYTE_T CCRF_LUT_RED3[CCRF_LUT_SIZE],
 
-			  const BYTE_T CCRF_LUT_BLUE4[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_GREEN4[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_RED4[CCRF_LUT_SIZE],
-
-			  const BYTE_T CCRF_LUT_BLUE5[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_GREEN5[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_RED5[CCRF_LUT_SIZE],
-
-			  const BYTE_T CCRF_LUT_BLUE6[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_GREEN6[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_RED6[CCRF_LUT_SIZE],
-
-			  const BYTE_T CCRF_LUT_BLUE7[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_GREEN7[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_RED7[CCRF_LUT_SIZE],
-
-			  const BYTE_T CCRF_LUT_BLUE8[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_GREEN8[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_RED8[CCRF_LUT_SIZE],
-
-			  const BYTE_T CCRF_LUT_BLUE9[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_GREEN9[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_RED9[CCRF_LUT_SIZE],
-
-			  const BYTE_T CCRF_LUT_BLUE10[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_GREEN10[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_RED10[CCRF_LUT_SIZE],
-
-			  const BYTE_T CCRF_LUT_BLUE11[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_GREEN11[CCRF_LUT_SIZE],
-			  const BYTE_T CCRF_LUT_RED11[CCRF_LUT_SIZE],
-
-			  BYTE_T memory[MEMORY_SIZE],
-
               bool &ccrf_got_data,
-              bool &ccrf_sent_data
-                          )
-//,              BYTE_T *const memory_bus)
+              bool &ccrf_sent_data,
+              WIDE_DATA_T * memory_bus)
 {
-    //#pragma HLS INTERFACE m_axi port=memory_bus depth=2147483648 offset=slave
-    #pragma HLS STREAM variable=input_subtask_queue depth=1
-    #pragma HLS STREAM variable=output_subtask_queue depth=1
+    #pragma HLS INTERFACE m_axi port=memory_bus depth=2147483648
+    #pragma HLS data_pack variable=memory_bus struct_level
+    //#pragma HLS STREAM variable=input_subtask_queue depth=1
+    //#pragma HLS STREAM variable=output_subtask_queue depth=1
     #pragma HLS INTERFACE ap_none port=status_signals
     #pragma HLS DATA_PACK variable=input_subtask_queue struct_level
-    #pragma HLS DATA_PACK variable=status_signals struct_level
-    #pragma HLS DATA_PACK variable=output_subtask_queue struct_level
-    #pragma HLS RESOURCE core=axis variable=input_subtask_queue
-    #pragma HLS RESOURCE core=axis variable=output_subtask_queue
+//    #pragma HLS DATA_PACK variable=status_signals struct_level
+ //   #pragma HLS DATA_PACK variable=output_subtask_queue struct_level
+    #pragma HLS INTERFACE axis port=output_subtask_queue
+    #pragma HLS INTERFACE axis port=input_subtask_queue
     #pragma HLS INTERFACE ap_memory port=CCRF_LUT_BLUE0
     #pragma HLS INTERFACE ap_memory port=CCRF_LUT_GREEN0
     #pragma HLS INTERFACE ap_memory port=CCRF_LUT_RED0
@@ -81,31 +47,6 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
     #pragma HLS INTERFACE ap_memory port=CCRF_LUT_BLUE3
     #pragma HLS INTERFACE ap_memory port=CCRF_LUT_GREEN3
     #pragma HLS INTERFACE ap_memory port=CCRF_LUT_RED3
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_BLUE4
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_GREEN4
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_RED4
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_BLUE5
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_GREEN5
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_RED5
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_BLUE6
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_GREEN6
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_RED6
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_BLUE7
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_GREEN7
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_RED7
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_BLUE8
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_GREEN8
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_RED8
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_BLUE9
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_GREEN9
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_RED9
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_BLUE10
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_GREEN10
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_RED10
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_BLUE11
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_GREEN11
-    #pragma HLS INTERFACE ap_memory port=CCRF_LUT_RED11
-    #pragma HLS INTERFACE ap_memory port=memory
 
     #pragma HLS INTERFACE ap_none port=ccrf_got_data
     #pragma HLS INTERFACE ap_none port=ccrf_sent_data
@@ -113,28 +54,6 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
     ccrf_got_data = !input_subtask_queue.empty();
     ccrf_sent_data = false;
 
-    const int LUT_PORT_COUNT = 12;
-
-    const BYTE_T* blue_ports[LUT_PORT_COUNT] = {CCRF_LUT_BLUE0, CCRF_LUT_BLUE1,
-    		                      CCRF_LUT_BLUE2, CCRF_LUT_BLUE3,
-								  CCRF_LUT_BLUE4, CCRF_LUT_BLUE5,
-								  CCRF_LUT_BLUE6, CCRF_LUT_BLUE7,
-								  CCRF_LUT_BLUE8, CCRF_LUT_BLUE9,
-								  CCRF_LUT_BLUE10, CCRF_LUT_BLUE11};
-
-    const BYTE_T*green_ports[LUT_PORT_COUNT] = {CCRF_LUT_GREEN0, CCRF_LUT_GREEN1,
-        		                  CCRF_LUT_GREEN2, CCRF_LUT_GREEN3,
-    							  CCRF_LUT_GREEN4, CCRF_LUT_GREEN5,
-    							  CCRF_LUT_GREEN6, CCRF_LUT_GREEN7,
-    							  CCRF_LUT_GREEN8, CCRF_LUT_GREEN9,
-    							  CCRF_LUT_GREEN10, CCRF_LUT_GREEN11};
-
-    const BYTE_T* red_ports[LUT_PORT_COUNT] = {CCRF_LUT_RED0, CCRF_LUT_RED1,
-        		                 CCRF_LUT_RED2, CCRF_LUT_RED3,
-    							 CCRF_LUT_RED4, CCRF_LUT_RED5,
-    							 CCRF_LUT_RED6, CCRF_LUT_RED7,
-    							 CCRF_LUT_RED8, CCRF_LUT_RED9,
-    							 CCRF_LUT_RED10, CCRF_LUT_RED11};
 
     if (!started) {
         #pragma HLS UNROLL
@@ -157,15 +76,15 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
             ///////////////////////////////////////////////////////////////////
             //                  INSERT YOUR CCRF LOGIC HERE                  //
             ///////////////////////////////////////////////////////////////////
-            memory[status_signals.job_info.output] = memory[status_signals.job_info.input1] + memory[status_signals.job_info.input2] / 2;
+//            memory[status_signals.job_info.output] = memory[status_signals.job_info.input1] + memory[status_signals.job_info.input2] / 2;
 
-            BYTE_T * input1 = &memory[status_signals.job_info.input1];
-            BYTE_T * input2 = &memory[status_signals.job_info.input2];
-            BYTE_T * output = &memory[status_signals.job_info.output];
-            #pragma HLS INTERFACE ap_memory port=input1
-            #pragma HLS INTERFACE ap_memory port=input2
-            #pragma HLS INTERFACE ap_memory port=output
-            for (int i = 0; i < status_signals.job_info.image_size; i++) {
+//            BYTE_T * input1 = &memory[status_signals.job_info.input1];
+//            BYTE_T * input2 = &memory[status_signals.job_info.input2];
+//            BYTE_T * output = &memory[status_signals.job_info.output];
+//            #pragma HLS INTERFACE ap_memory port=input1
+//            #pragma HLS INTERFACE ap_memory port=input2
+//            #pragma HLS INTERFACE ap_memory port=output
+/*            for (int i = 0; i < status_signals.job_info.image_size; i++) {
 
             	BYTE_T blue_result = ((uint32_t)input1[i * 3 + 0] + (uint32_t)input2[i * 3 + 0]);
             	BYTE_T green_result = ((uint32_t)input1[i * 3 + 1] + (uint32_t)input2[i * 3 + 1]);
@@ -178,8 +97,61 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
                 output[i * 3 + 0] = blue_result / 2;
                 output[i* 3 + 1] = green_result / 2;
                 output[i* 3 + 2] = red_result / 2;
+            }*/
+	    int in1_offset = status_signals.job_info.input1;
+	    int in2_offset = status_signals.job_info.input2;
+	    int out_offset = status_signals.job_info.output;
+	    for (int i = 0; i < status_signals.job_info.image_size/4; i++) {
+	    #pragma HLS pipeline
+		BYTE_T B1_0 = memory_bus[in1_offset+i].data[0];
+		BYTE_T G1_0 = memory_bus[in1_offset+i].data[1];
+		BYTE_T R1_0 = memory_bus[in1_offset+i].data[2];
+                BYTE_T B1_1 = memory_bus[in1_offset+i].data[4];
+                BYTE_T G1_1 = memory_bus[in1_offset+i].data[5];
+                BYTE_T R1_1 = memory_bus[in1_offset+i].data[6];
+                BYTE_T B1_2 = memory_bus[in1_offset+i].data[8];
+                BYTE_T G1_2 = memory_bus[in1_offset+i].data[9];
+                BYTE_T R1_2 = memory_bus[in1_offset+i].data[10];
+                BYTE_T B1_3 = memory_bus[in1_offset+i].data[12];
+                BYTE_T G1_3 = memory_bus[in1_offset+i].data[13];
+                BYTE_T R1_3 = memory_bus[in1_offset+i].data[14];
+                BYTE_T B2_0 = memory_bus[in2_offset+i].data[0];
+                BYTE_T G2_0 = memory_bus[in2_offset+i].data[1];
+                BYTE_T R2_0 = memory_bus[in2_offset+i].data[2];
+                BYTE_T B2_1 = memory_bus[in2_offset+i].data[4];
+                BYTE_T G2_1 = memory_bus[in2_offset+i].data[5];
+                BYTE_T R2_1 = memory_bus[in2_offset+i].data[6];
+                BYTE_T B2_2 = memory_bus[in2_offset+i].data[8];
+                BYTE_T G2_2 = memory_bus[in2_offset+i].data[9];
+                BYTE_T R2_2 = memory_bus[in2_offset+i].data[10];
+                BYTE_T B2_3 = memory_bus[in2_offset+i].data[12];
+                BYTE_T G2_3 = memory_bus[in2_offset+i].data[13];
+                BYTE_T R2_3 = memory_bus[in2_offset+i].data[14];
+		uint16_t LUT_entry_b0 = (uint16_t)B1_0 + (uint16_t)B2_0 * 256;
+                uint16_t LUT_entry_b1 = (uint16_t)B1_1 + (uint16_t)B2_1 * 256;
+                uint16_t LUT_entry_b2 = (uint16_t)B1_2 + (uint16_t)B2_2 * 256;
+                uint16_t LUT_entry_b3 = (uint16_t)B1_3 + (uint16_t)B2_3 * 256;
+                uint16_t LUT_entry_g0 = (uint16_t)G1_0 + (uint16_t)G2_0 * 256;
+                uint16_t LUT_entry_g1 = (uint16_t)G1_1 + (uint16_t)G2_1 * 256;
+                uint16_t LUT_entry_g2 = (uint16_t)G1_2 + (uint16_t)G2_2 * 256;
+                uint16_t LUT_entry_g3 = (uint16_t)G1_3 + (uint16_t)G2_3 * 256;
+                uint16_t LUT_entry_r0 = (uint16_t)R1_0 + (uint16_t)R2_0 * 256;
+                uint16_t LUT_entry_r1 = (uint16_t)R1_1 + (uint16_t)R2_1 * 256;
+                uint16_t LUT_entry_r2 = (uint16_t)R1_2 + (uint16_t)R2_2 * 256;
+                uint16_t LUT_entry_r3 = (uint16_t)R1_3 + (uint16_t)R2_3 * 256;
+		memory_bus[out_offset+i].data[0] = CCRF_LUT_BLUE0[LUT_entry_b0];
+                memory_bus[out_offset+i].data[1] = CCRF_LUT_BLUE1[LUT_entry_b1];
+                memory_bus[out_offset+i].data[2] = CCRF_LUT_BLUE2[LUT_entry_b2];
+                memory_bus[out_offset+i].data[4] = CCRF_LUT_BLUE3[LUT_entry_b3];
+                memory_bus[out_offset+i].data[5] = CCRF_LUT_GREEN0[LUT_entry_g0];
+                memory_bus[out_offset+i].data[6] = CCRF_LUT_GREEN1[LUT_entry_g1];
+                memory_bus[out_offset+i].data[8] = CCRF_LUT_GREEN2[LUT_entry_g2];
+                memory_bus[out_offset+i].data[9] = CCRF_LUT_GREEN3[LUT_entry_g3];
+                memory_bus[out_offset+i].data[10] = CCRF_LUT_RED0[LUT_entry_r0];
+		memory_bus[out_offset+i].data[12] = CCRF_LUT_RED1[LUT_entry_r1];
+		memory_bus[out_offset+i].data[13] = CCRF_LUT_RED2[LUT_entry_r2];
+		memory_bus[out_offset+i].data[14] = CCRF_LUT_RED3[LUT_entry_r3];
             }
-
 
             ///////////////////////////////////////////////////////////////////
 
