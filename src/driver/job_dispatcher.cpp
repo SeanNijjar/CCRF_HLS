@@ -132,6 +132,7 @@ void JobDispatcher::MainDispatcherThreadLoop()
     }
     #endif
 
+    bool jobs_dispatched = false;
     do {
         did_something_this_iteration = false;
 
@@ -144,16 +145,17 @@ void JobDispatcher::MainDispatcherThreadLoop()
             active_jobs.insert(new_job_ID);
             job_start_times[new_job_ID] = std::chrono::high_resolution_clock::now();
             did_something_this_iteration = true;
+            jobs_dispatched = true;
         }
 
         did_something_this_iteration = TryDispatchJob() || did_something_this_iteration;
 
         JOB_STATUS_MESSAGE job_status;
-        bool read_successful = ReadJobStatusMessage(job_status);
+        bool read_successful = (jobs_dispatched) ? ReadJobStatusMessage(job_status) : false;
 
         if (read_successful) {
             // Remove the job from the set of active jobs
-    
+            std::cout << "Got Successful Read" << std::endl; 
             #ifdef LOOPBACK_TEST
             ASSERT((uint8_t)job_status.packet_message_type == (uint8_t)(pending_jobs.front().job_ID & 0xFF), "LOOPBACK RESULT ERROR packet_message_type " << (unsigned int)job_status.packet_message_type << "!=" << (unsigned int)(pending_jobs.front().job_ID & 0xFF));
             ASSERT((uint8_t)job_status.job_ID == (uint8_t)((pending_jobs.front().job_ID >> 8) & 0xFF), "LOOPBACK RESULT ERROR job_ID " << (unsigned int)job_status.job_ID << "!=" << (unsigned int)((pending_jobs.front().job_ID >> 8) & 0xFF));
@@ -168,17 +170,21 @@ void JobDispatcher::MainDispatcherThreadLoop()
                     pending_jobs.pop();
                     dispatch_request_in_flight = false;
                     ASSERT(accelerator_full == false, "WEIRD: got a job accept when accelerator already full - doesn't make sense");
+                    std::cout<<"Job Accept"<<(int)job_status.job_ID<<std::endl;
                 } break;
 
                 case JOB_STATUS_MESSAGE::JOB_REJECT_PACKET: {
                     dispatch_request_in_flight = false;
                     accelerator_full = true;
                     job_start_times.erase(job_status.job_ID);
+                    std::cout << "Job Reject " << (int)job_status.job_ID << std::endl;
                 } break;
 
                 case JOB_STATUS_MESSAGE::JOB_DONE_PACKET: {
                     if (accelerator_full) 
                         ASSERT(dispatch_request_in_flight == false, "Got job completion package from full accelerator but showing job in flight - doesn't make sense")
+
+                    std::cout<<"Job Complete"<<(int)job_status.job_ID<<std::endl;
 
                     ASSERT(executing_jobs.front().job_ID == job_status.job_ID, "Got out of order job completion - currently unexpected in the design");
                     auto job_time = std::chrono::system_clock::now() - job_start_times[job_status.job_ID];
