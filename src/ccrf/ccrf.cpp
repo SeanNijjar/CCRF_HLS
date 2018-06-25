@@ -164,25 +164,85 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
     #pragma HLS RESOURCE core=axis variable=input_subtask_queue
     #pragma HLS RESOURCE core=axis variable=output_subtask_queue
 
-    #pragma HLS INTERFACE ap_none port=job_valid
+    #pragma HLS INTERFACE ap_ctrl_none port=return
+	#pragma HLS INTERFACE ap_none port=job_valid
     #pragma HLS INTERFACE ap_none port=job_done
     #pragma HLS INTERFACE ap_none port=job_info_out
     #pragma HLS DATA_PACK variable=job_info_out
     #pragma HLS INTERFACE ap_none port=ccrf_got_data
     #pragma HLS INTERFACE ap_none port=ccrf_sent_data
 
-	CCRF_UNIT_STATUS_SIGNALS status_signals_internal;
+	enum CTRL_STATE {
+		START,
+		WAIT_INPUT,
+		SET_JOB_VALID,
+		WAIT_JOB_DONE,
+		WRITE_OUTPUT
+	};
+
+	static CTRL_STATE ctrl_state = START;
+	CTRL_STATE ctrl_state_next = START;
+
+	static CCRF_UNIT_STATUS_SIGNALS status_signals_internal;
     static bool started = false;
     ccrf_got_data = !input_subtask_queue.empty();
     ccrf_sent_data = false;
 
     static bool job_valid_internal = false;
     static JOB_SUBTASK job_info_internal;
-    bool write_output = false;
-    job_valid = job_valid_internal;
-    job_info_out = job_info_internal;
 
+	switch (ctrl_state) {
+	case START:
+		job_valid_internal = false;
+    	status_signals_internal.is_processing = false;
+    	status_signals_internal.running = true;
+    	status_signals_internal.job_info.input1 = (uintptr_t)nullptr;
+    	status_signals_internal.job_info.input2 = (uintptr_t)nullptr;
+    	status_signals_internal.job_info.output = (uintptr_t)nullptr;
+    	status_signals_internal.job_info.image_size = 0;
+        status_signals_internal.job_info.job_ID = 0;
+		ctrl_state_next = WAIT_INPUT;
+		break;
+
+	case WAIT_INPUT:
+		job_valid_internal = false;
+		if (!input_subtask_queue.empty()) {
+			ctrl_state_next = SET_JOB_VALID;
+		} else {
+			ctrl_state_next = WAIT_INPUT;
+		}
+		break;
+
+
+	case SET_JOB_VALID:
+		status_signals_internal.is_processing = true;
+		job_info_internal = input_subtask_queue.read();
+		status_signals_internal.job_info = job_info_internal;
+		job_valid_internal = true;
+		ctrl_state_next = WAIT_JOB_DONE;
+		break;
+
+	case WAIT_JOB_DONE:
+		job_valid_internal = true;
+		if (job_done) {
+			ctrl_state_next = WRITE_OUTPUT;
+		} else {
+			ctrl_state_next = WAIT_JOB_DONE;
+		}
+		break;
+
+	case WRITE_OUTPUT:
+		output_subtask_queue.write(job_info_internal.output);
+		ctrl_state_next = START;
+        break;
+	};
+
+	job_info_out = job_info_internal;
     status_signals = status_signals_internal;
+
+    ctrl_state = ctrl_state_next;
+
+    /*
     if (!started) {
         #pragma HLS UNROLL
     	status_signals_internal.is_processing = false;
@@ -193,7 +253,7 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
     	status_signals_internal.job_info.image_size = 0;
         status_signals_internal.job_info.job_ID = 0;
         started = true;
-        job_valid_internal=false;
+        job_valid_internal = false;
     }
 
     if (job_valid_internal) {
@@ -205,10 +265,10 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
         	status_signals_internal.job_info.job_ID = 0;
         	status_signals_internal.is_processing = false;
             ccrf_sent_data = true;
-            job_valid_internal = false;
-            write_output = true;
             output_subtask_queue.write(job_info_internal.output);
+            job_valid_internal = false;
         }
+        job_valid_internal = !job_done;
     } else if (!input_subtask_queue.empty()) {
         ASSERT(!status_signals.is_processing, "Tried to start a new job on an already busy CCRF unit");
         status_signals_internal.is_processing = true;
@@ -216,10 +276,7 @@ void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
         status_signals_internal.job_info = job_info_internal;
         job_valid_internal = true;
     }
-
-    if (write_output) {
-    	//output_subtask_queue.write(job_info_internal.output);
-    }
+    */
 
     status_signals = status_signals_internal;
 
