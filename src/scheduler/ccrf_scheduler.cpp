@@ -246,15 +246,15 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
         }
 
         for (int output = 0; output < ldr_image_count - 1; output++) {
-            //if (output_addr + (image_size * sizeof(PIXEL_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
-            if (CCRF_HARDWARE_SCRATCHPAD_START + scratchpad_offset + (image_size * sizeof(PIXEL_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
+            //if (output_addr + (image_size * sizeof(PIXEL4_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
+            if (CCRF_HARDWARE_SCRATCHPAD_START + scratchpad_offset + (image_size * sizeof(PIXEL4_T)) >= CCRF_HARDWARE_SCRATCHPAD_END) {
                 //output_addr = CCRF_HARDWARE_SCRATCHPAD_START;
                 scratchpad_offset = 0;
             }
             //output_addresses[output] = output_addr;
             output_addresses[output] = CCRF_HARDWARE_SCRATCHPAD_START + scratchpad_offset;
-            //output_addr += image_size * sizeof(PIXEL_T);
-            scratchpad_offset += image_size * sizeof(PIXEL_T);
+            //output_addr += image_size * sizeof(PIXEL4_T);
+            scratchpad_offset += image_size * sizeof(PIXEL4_T);
         }
 
         //while(jobs_in_progress.full());
@@ -271,7 +271,7 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
                 new_subtask.input1 = input_addresses[input];
                 new_subtask.input2 = input_addresses[input + 1];
                 new_subtask.output = real_output_addr;
-                ASSERT(real_output_addr + (image_size * sizeof(PIXEL_T)) < CCRF_HARDWARE_SCRATCHPAD_END, "Out of range output");
+                ASSERT(real_output_addr + (image_size * sizeof(PIXEL4_T)) < CCRF_HARDWARE_SCRATCHPAD_END, "Out of range output");
                 new_subtask.image_size = image_size;
                 new_subtask.job_ID = current_job_ID;
                 ASSERT(new_subtask.image_size != 0, "Invalid subtask image_size");
@@ -327,7 +327,7 @@ void JobResultNotifier(hls::stream<JOB_COMPLETION_PACKET> &completed_job_queue,
             if (queue_empty) {
                 continue;
             }
-            //const PIXEL_T *const output_addr = CCRF_completed_outputs[i]->read();
+            //const PIXEL4_T *const output_addr = CCRF_completed_outputs[i]->read();
             uintptr_t output_addr = (uintptr_t)nullptr;
             output_addr = completed_queues_from_ccrf_units[i].read();
             job_completed = (output_addr == (uintptr_t)job_info.output_address);
@@ -416,12 +416,12 @@ bool DoesTaskWaitForDependencies(JOB_SUBTASK task_to_check,
         for (int i = dependency_count - 1; i >= 0; i--) {
             #pragma HLS UNROLL
             const uintptr_t task_dependence = dependencies[i];
-            bool matches_dep1 = IntervalsOverlap(ccrf_job.input1, ccrf_image_size * sizeof(PIXEL_T), 
-                                                 task_dependence, task_to_check.image_size * sizeof(PIXEL_T));
-            bool matches_dep2 = IntervalsOverlap(ccrf_job.input2, ccrf_image_size * sizeof(PIXEL_T), 
-                                                 task_dependence, task_to_check.image_size * sizeof(PIXEL_T));
-            bool matches_dep3 = IntervalsOverlap(ccrf_job.output, ccrf_image_size * sizeof(PIXEL_T), 
-                                                 task_dependence, task_to_check.image_size * sizeof(PIXEL_T));
+            bool matches_dep1 = IntervalsOverlap(ccrf_job.input1, ccrf_image_size * sizeof(PIXEL4_T), 
+                                                 task_dependence, task_to_check.image_size * sizeof(PIXEL4_T));
+            bool matches_dep2 = IntervalsOverlap(ccrf_job.input2, ccrf_image_size * sizeof(PIXEL4_T), 
+                                                 task_dependence, task_to_check.image_size * sizeof(PIXEL4_T));
+            bool matches_dep3 = IntervalsOverlap(ccrf_job.output, ccrf_image_size * sizeof(PIXEL4_T), 
+                                                 task_dependence, task_to_check.image_size * sizeof(PIXEL4_T));
             if (i == 2) {
                 // For inputs, check for dependence against outputs, so we wait for the result
                 // to be available

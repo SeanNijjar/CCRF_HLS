@@ -70,7 +70,7 @@ ZynqHardwareDriver::ZynqHardwareDriver(
         std::vector<JOB_STATUS_MESSAGE> &outgoing_queue
     ) :
     Driver(incoming_queue, outgoing_queue),
-    scratchpad_size_in_bytes(80000*sizeof(PIXEL_T)),
+    scratchpad_size_in_bytes(1000000*sizeof(PIXEL4_T)),
     #ifdef LOOPBACK_TEST
     job_package_axidma_buffer_size(4),
     job_status_axidma_buffer_size(4)
@@ -120,7 +120,7 @@ ZynqHardwareDriver::ZynqHardwareDriver(
 
     FlushHardware();
 
-    InitializeHardwareScratchpadMemory(6000000);
+    InitializeHardwareScratchpadMemory(1000000);
 
     goto end;
 
@@ -140,7 +140,7 @@ ZynqHardwareDriver::~ZynqHardwareDriver()
 
 void ZynqHardwareDriver::InitializeHardwareScratchpadMemory(size_t scratchpad_size)
 {
-    int scratchpad_pixel_count = scratchpad_size / sizeof(PIXEL_T);
+    int scratchpad_pixel_count = scratchpad_size / sizeof(PIXEL4_T);
     scratchpad_start_addr = (uintptr_t)AxidmaMalloc(scratchpad_size_in_bytes);
     uintptr_t scratchpad_end_addr = (uintptr_t)((char*)scratchpad_start_addr + scratchpad_size_in_bytes);
     JobPackage initialization_message;

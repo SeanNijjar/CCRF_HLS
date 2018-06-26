@@ -120,8 +120,8 @@ void JobDispatcher::MainDispatcherThreadLoop()
 
     #ifdef CSIM
     {
-        const int scratchpad_size = 60000000;
-        const int scratchpad_size_in_bytes = scratchpad_size / sizeof(PIXEL_T);
+        const int scratchpad_size = 6000000;
+        const int scratchpad_size_in_bytes = scratchpad_size * sizeof(PIXEL4_T);
         uintptr_t scratchpad_start_addr = (uintptr_t)new BYTE_T[scratchpad_size_in_bytes];
         uintptr_t scratchpad_end_addr = (uintptr_t)((char*)scratchpad_start_addr + scratchpad_size_in_bytes);
         JobPackage initialization_message;

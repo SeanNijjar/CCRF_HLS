@@ -3,10 +3,10 @@
 
 #include "types.hpp"
 #include "helper.hpp"
- #include "job_descriptor.hpp"
- #include "job_package.hpp"
- #include "ccrf.hpp"
- #include <hls_stream.h>
+#include "job_descriptor.hpp"
+#include "job_package.hpp"
+#include "ccrf.hpp"
+#include <hls_stream.h>
 #include <ap_axi_sdata.h>
 
 #define NUM_CCRF_UNITS 1
