@@ -142,6 +142,7 @@ void ZynqHardwareDriver::InitializeHardwareScratchpadMemory(size_t scratchpad_si
 {
     int scratchpad_pixel_count = scratchpad_size / sizeof(PIXEL4_T);
     scratchpad_start_addr = (uintptr_t)AxidmaMalloc(scratchpad_size_in_bytes);
+    std::cout << "Scratchpad start address = " << (PIXEL_T*)scratchpad_start_addr << std::endl;
     uintptr_t scratchpad_end_addr = (uintptr_t)((char*)scratchpad_start_addr + scratchpad_size_in_bytes);
     JobPackage initialization_message;
     initialization_message.job_ID = JobPackage::INITIALIZATION_PACKET_ID(); //

@@ -53,7 +53,7 @@ struct JobDescriptor
 
     static const int BytesNeededForEntireJob(const JobDescriptor *const job_descriptor) {
         const int image_size = job_descriptor->IMAGE_SIZE();
-        return BytesNeededForJobDescriptor(job_descriptor) + (image_size * sizeof(PIXEL_T) * job_descriptor->LDR_IMAGE_COUNT);
+        return BytesNeededForJobDescriptor(job_descriptor) + (image_size * sizeof(PIXEL4_T) * job_descriptor->LDR_IMAGE_COUNT);
     }
 
     static const int BytesNeededForJobDescriptor(const JobDescriptor *const job_descriptor) {

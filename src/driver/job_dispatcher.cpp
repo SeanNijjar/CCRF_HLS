@@ -186,15 +186,16 @@ void JobDispatcher::MainDispatcherThreadLoop()
 
                     std::cout<<"Job Complete"<<(int)job_status.job_ID<<std::endl;
 
-                    ASSERT(executing_jobs.front().job_ID == job_status.job_ID, "Got out of order job completion - currently unexpected in the design");
+//                    ASSERT(executing_jobs.front().job_ID == job_status.job_ID, "Got out of order job completion - currently unexpected in the design");
                     auto job_time = std::chrono::system_clock::now() - job_start_times[job_status.job_ID];
                     auto num_microseconds = std::chrono::duration_cast<std::chrono::microseconds> (job_time);
 
                     finished_jobs.push_back({num_microseconds, job_status.job_ID, 
                                              executing_jobs.front().job_descriptor.IMAGE_SIZE(), 
                                              executing_jobs.front().job_descriptor.LDR_IMAGE_COUNT});
-
-                    executing_jobs.pop();
+                    if (executing_jobs.front().job_ID == job_status.job_ID) {
+                        executing_jobs.pop();
+                    }
                     JOB_COMPLETION_PACKET job_completion_packet({(uintptr_t)nullptr, job_status.job_ID, -1});
                     outgoing_finished_job_queue.push_back(job_completion_packet);
                     active_jobs.erase(job_status.job_ID);

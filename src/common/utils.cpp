@@ -66,6 +66,7 @@ IMAGE_T ReadImageFile(std::string image_file_path)
         for (int pixel = 0; pixel < pixel_count; pixel++) {
             PIXEL4_T pixel4_data;
             memcpy(&pixel4_data, &image_matrix.data[pixel*sizeof(PIXEL_T)], sizeof(PIXEL_T));
+            pixel4_data[3] = 0;
             for (int channel = 0; channel < 4; channel++) {
                 image_matrix_data[pixel][channel] = pixel4_data[channel];
             }
@@ -78,6 +79,18 @@ IMAGE_T ReadImageFile(std::string image_file_path)
         ASSERT(image_matrix_data[1][0] == image_matrix.data[3], "pixel value mismatch after preprocessing");
         ASSERT(image_matrix_data[1][1] == image_matrix.data[4], "pixel value mismatch after preprocessing");
         ASSERT(image_matrix_data[1][2] == image_matrix.data[5], "pixel value mismatch after preprocessing");
+
+	std::cout << "Image pixel values: {B,G,R,A}: " << std::endl;
+        for (int pixel = 0; pixel < 2; pixel++) {
+            std::cout << " {";
+            for (int channel = 0; channel < 4; channel++) {
+		if (channel > 0) {
+                    std::cout << ", ";
+                } 
+                std::cout << (int)image_matrix_data[pixel][channel];
+            }
+            std::cout << " }";
+        }
     }
 
     

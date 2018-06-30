@@ -55,13 +55,14 @@ int main(int argc, char *argv[])
     for (auto img_stack_iter = image_stacks.begin(); img_stack_iter != image_stacks.end(); img_stack_iter++) {
         JobDescriptor *new_job_descriptor = JobDescriptor::Create(*img_stack_iter);
 
-        size_t image_size = new_job_descriptor->IMAGE_SIZE() * sizeof(PIXEL_T);
+        size_t image_size = new_job_descriptor->IMAGE_SIZE() * sizeof(PIXEL4_T);
         int num_images = new_job_descriptor->LDR_IMAGE_COUNT;
         for (int i = 0; i < num_images; i++) {//auto image : image_stack) {
-            PIXEL_T *image = (PIXEL_T*)job_dispatcher.AxidmaMalloc(image_size);
-            memcpy(image, (PIXEL_T*)new_job_descriptor->INPUT_IMAGES[i], image_size);
+            PIXEL4_T *image = (PIXEL4_T*)job_dispatcher.AxidmaMalloc(image_size);
+            memcpy(image, (PIXEL4_T*)new_job_descriptor->INPUT_IMAGES[i], image_size);
             delete (BYTE_T*)new_job_descriptor->INPUT_IMAGES[i];
             new_job_descriptor->INPUT_IMAGES[i] = (uintptr_t)image;
+            std::cout << "Input image " << i << " address = " << image << std::endl;
         }
 
         new_job_descriptor->OUTPUT_IMAGE_LOCATION = (uintptr_t)job_dispatcher.AxidmaMalloc(image_size);
@@ -73,29 +74,48 @@ int main(int argc, char *argv[])
     std::cout << "Consolidating jobs" << std::endl;
     std::vector<BYTE_T*> consolidated_job_buffers;
     for (auto job_desc_iter = job_descriptors.begin(); job_desc_iter != job_descriptors.end(); job_desc_iter++) {
-        size_t bytes_needed_for_entire_job = JobDescriptor::BytesNeededForEntireJob(*job_desc_iter);
+        size_t bytes_needed_for_descriptor = JobDescriptor::BytesNeededForJobDescriptor((*job_desc_iter)->LDR_IMAGE_COUNT);
         #ifdef CSIM
         BYTE_T *consolidated_job_buffer = (BYTE_T*)new BYTE_T[bytes_needed_for_entire_job + 32];//(BYTE_T*)new BYTE_T*[bytes_needed_for_entire_job + 32];
         #else
-        BYTE_T *consolidated_job_buffer = (BYTE_T*)job_dispatcher.AxidmaMalloc(bytes_needed_for_entire_job + 32);//(BYTE_T*)new BYTE_T*[bytes_needed_for_entire_job + 32];
+        BYTE_T *consolidated_job_buffer = (BYTE_T*)job_dispatcher.AxidmaMalloc(bytes_needed_for_descriptor);//(BYTE_T*)new BYTE_T*[bytes_needed_for_entire_job + 32];
         #endif
-        memcpy(consolidated_job_buffer, (*job_desc_iter), JobDescriptor::BytesNeededForJobDescriptor((*job_desc_iter)->LDR_IMAGE_COUNT));
+        memcpy(consolidated_job_buffer, (*job_desc_iter), bytes_needed_for_descriptor);
         consolidated_job_buffers.push_back(consolidated_job_buffer);
     }
     
     std::cout << "Dispatching jobs" << std::endl;
 
     std::vector<JOB_ID_T> job_IDs;
+    int i = 0;
     for (auto consolidated_job_buffer : consolidated_job_buffers) {
         std::cout << "Dispatching job..." << std::endl;
         job_dispatcher.DispatchJob(JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer));
+
+        //job_dispatcher.SynchronizeWait();
+ 
+        job_dispatcher.PrintJobResultStats();
+
+
+        JobDescriptor *processed_image_job_descriptor = JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer);
+        IMAGE_T image_to_write_to_file((PIXEL_T*)processed_image_job_descriptor->OUTPUT_IMAGE_LOCATION, processed_image_job_descriptor->IMAGE_WIDTH, processed_image_job_descriptor->IMAGE_HEIGHT);
+        std::cout << "Writing image to file" << std::endl;
+        WriteImageToFile(image_to_write_to_file, std::string("HDR_OUTPUT_").append(std::to_string(i)).append(".jpg"));
+        #ifdef CSIM
+        delete consolidated_job_buffer;
+        #else
+        std::cout << "AxidmaMalloc" << std::endl;
+        job_dispatcher.AxidmaFree(consolidated_job_buffer, JobDescriptor::BytesNeededForJobDescriptor((JobDescriptor*)consolidated_job_buffer));
+        #endif
+        i++;
+        std::cout << "Done Image" << std::endl;
     }
 
-    job_dispatcher.SynchronizeWait();
+/*    job_dispatcher.SynchronizeWait();
 
     job_dispatcher.PrintJobResultStats();
 
-    int i = 0;
+    i = 0;
     for (auto consolidated_job_buffer : consolidated_job_buffers) {
         JobDescriptor *processed_image_job_descriptor = JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer);
         IMAGE_T image_to_write_to_file((PIXEL_T*)processed_image_job_descriptor->OUTPUT_IMAGE_LOCATION, processed_image_job_descriptor->IMAGE_WIDTH, processed_image_job_descriptor->IMAGE_HEIGHT);
@@ -107,6 +127,8 @@ int main(int argc, char *argv[])
         #endif
         i++;
     }
+
+*/
 
     //job_dispatcher.StopDispatcher();
     std::cout << "Test Done" << std::endl;
