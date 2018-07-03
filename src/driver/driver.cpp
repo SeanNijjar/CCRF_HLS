@@ -70,6 +70,8 @@ ZynqHardwareDriver::ZynqHardwareDriver(
         std::vector<JOB_STATUS_MESSAGE> &outgoing_queue
     ) :
     Driver(incoming_queue, outgoing_queue),
+    pl_ddr_start_addr(0),
+    pl_ddr_last_addr(1l << 32),
     scratchpad_size_in_bytes(1000000*sizeof(PIXEL4_T)),
     #ifdef LOOPBACK_TEST
     job_package_axidma_buffer_size(4),
@@ -120,7 +122,7 @@ ZynqHardwareDriver::ZynqHardwareDriver(
 
     FlushHardware();
 
-    InitializeHardwareScratchpadMemory(1000000);
+    InitializeHardwareScratchpadMemory();
 
     goto end;
 
@@ -138,9 +140,9 @@ ZynqHardwareDriver::~ZynqHardwareDriver()
     axidma_destroy(axidma_dev);
 }
 
-void ZynqHardwareDriver::InitializeHardwareScratchpadMemory(size_t scratchpad_size)
+void ZynqHardwareDriver::InitializeHardwareScratchpadMemory()
 {
-    int scratchpad_pixel_count = scratchpad_size / sizeof(PIXEL4_T);
+    int scratchpad_pixel_count = scratchpad_size_in_bytes / sizeof(PIXEL4_T);
     scratchpad_start_addr = (uintptr_t)AxidmaMalloc(scratchpad_size_in_bytes);
     std::cout << "Scratchpad start address = " << (PIXEL_T*)scratchpad_start_addr << std::endl;
     uintptr_t scratchpad_end_addr = (uintptr_t)((char*)scratchpad_start_addr + scratchpad_size_in_bytes);
@@ -179,6 +181,43 @@ bool ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffe
     }
 
     return (rc == 0) ? true : false;
+}
+
+bool ZynqHardwareDriver::IntervalsOverlapAddress(uintptr_t interval_start, uintptr_t interval_end, uintptr_t address_to_check)
+{
+    ASSERT (interval_start < interval_end, "Invalid interval");
+    return interval_start <= address_to_check && address_to_check <= interval_end;
+}
+
+void *ZynqHardwareDriver::AxidmaMalloc(size_t size_in_bytes) 
+{ 
+    const int padding = 16;
+    
+    uintptr_t alloced_region_start = pl_ddr_current_malloc_addr;
+    uintptr_t alloced_region_end = alloced_region_start + size_in_bytes + padding;
+
+    if (scratchpad_start_addr - alloced_region_end <= size_in_bytes + padding) {
+        alloced_region_start = scratchpad_start_addr + scratchpad_size_in_bytes;
+        alloced_region_end = alloced_region_start + size_in_bytes + padding;
+    }
+
+    if (pl_ddr_last_addr - alloced_region_start <= size_in_bytes + padding) {
+        alloced_region_start = 0;
+        alloced_region_end = alloced_region_start + size_in_bytes + padding;
+    }
+
+    pl_ddr_current_malloc_addr = alloced_region_end + padding - (alloced_region_end % padding); // Extra padding in case of wide reads
+    if (pl_ddr_current_malloc_addr >= pl_ddr_last_addr) {
+        pl_ddr_current_malloc_addr = 0;
+    }
+
+    return (void*)alloced_region_start;
+}
+
+
+void ZynqHardwareDriver::AxidmaFree(void *buffer, size_t buffer_size) 
+{ 
+    ;// do nothing 
 }
 
 int ZynqHardwareDriver::TransferFile (

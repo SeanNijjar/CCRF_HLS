@@ -54,8 +54,8 @@ class ZynqHardwareDriver : public Driver
     bool ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read);
     const uint64_t GetDMAFileSize(std::string dma_file_path);
 
-    void *AxidmaMalloc(size_t size_in_bytes) { return axidma_malloc(axidma_dev, size_in_bytes); }
-    void AxidmaFree(void *buffer, size_t buffer_size) { axidma_free(axidma_dev, buffer, buffer_size); }
+    void *AxidmaMalloc(size_t size_in_bytes);
+    void AxidmaFree(void *buffer, size_t buffer_size);
 
 
   private:
@@ -70,6 +70,13 @@ class ZynqHardwareDriver : public Driver
         void *output_buf;       // The buffer to hold the output
     };
 
+    // AXIDMA MALLOC HELPER FIELDS
+    const uintptr_t pl_ddr_start_addr;
+    const uintptr_t pl_ddr_last_addr;
+    uintptr_t pl_ddr_current_malloc_addr;
+    uintptr_t pl_ddr_lowest_in_use_addr;
+
+
     int input_channel;
     int output_channel;
     long int output_size; // in Bytes 
@@ -77,6 +84,7 @@ class ZynqHardwareDriver : public Driver
     struct dma_transfer trans;
     const array_t *tx_chans, *rx_chans;
     std::string input_path, output_path;
+
 
     /* AXIDMA BUFFERS */
     JobPackage *job_package_axidma_buffer;
@@ -88,7 +96,9 @@ class ZynqHardwareDriver : public Driver
     /*----------------*/
 
 
-    void InitializeHardwareScratchpadMemory(size_t scratchpad_size);
+    static bool IntervalsOverlapAddress(uintptr_t interval_start, uintptr_t interval_end, uintptr_t address_to_check);
+
+    void InitializeHardwareScratchpadMemory();
     void FlushHardware();
     int TransferFile(dma_transfer trans);
     int ParseInt(char option, uint8_t *arg_str, int *data);
