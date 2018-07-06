@@ -103,7 +103,7 @@ void CcrfSchedulerTopLevel(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
 
 
     // Send response message to the host
-	bool update_scratchpad_addr = job_package_is_active && !response_message_queue_full && is_scratchpad_message;
+    bool update_scratchpad_addr = job_package_is_active &&  is_scratchpad_message;
     if (write_completion_packet) {
     	JOB_STATUS_MESSAGE completion_packet_for_host;
         completion_packet_for_host.packet_message_type =
@@ -121,7 +121,7 @@ void CcrfSchedulerTopLevel(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
     	axi_stream_packet.dest = 0;
     	axi_stream_packet.user = 0;
     	response_message_queue.write(axi_stream_packet);
-    	if (write_active_job_to_queue && !response_message_queue_full) {
+    	if (write_active_job_to_queue) {
     		jobs_to_schedule_queue.write(active_job_package);
     		job_package_is_active = false;
     	}
