@@ -54,6 +54,8 @@ class ZynqHardwareDriver : public Driver
     bool ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read);
     const uint64_t GetDMAFileSize(std::string dma_file_path);
 
+    bool PL_to_PS_DMA(void *const ps_addr, void * const pl_addr, size_t image_size_in_bytes);
+
     void *AxidmaMalloc(size_t size_in_bytes);
     void AxidmaFree(void *buffer, size_t buffer_size);
 
@@ -81,8 +83,11 @@ class ZynqHardwareDriver : public Driver
     int output_channel;
     long int output_size; // in Bytes 
     axidma_dev_t axidma_dev; // transfer
+    axidma_dev_t axidma_mem;
     struct dma_transfer trans;
+    struct dma_transfer trans_mem;
     const array_t *tx_chans, *rx_chans;
+    const array_t *tx_chans_mem, *rx_chans_mem;
     std::string input_path, output_path;
 
 

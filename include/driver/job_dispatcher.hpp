@@ -114,6 +114,7 @@ class JobDispatcher
 
 
   private:
+    std::unordered_map<uintptr_t, uintptr_t> pl_to_ps_output_addr_map;
     std::unordered_set<JOB_ID_T> active_jobs;
     std::unordered_map<JOB_ID_T, std::chrono::system_clock::time_point> job_start_times;
     std::queue<JobPackage> pending_jobs;
