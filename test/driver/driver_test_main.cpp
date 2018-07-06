@@ -65,7 +65,7 @@ int main(int argc, char *argv[])
             std::cout << "Input image " << i << " address = " << image << std::endl;
         }
 
-        new_job_descriptor->OUTPUT_IMAGE_LOCATION = (uintptr_t)job_dispatcher.AxidmaMalloc(image_size);
+        new_job_descriptor->OUTPUT_IMAGE_LOCATION = (uintptr_t)malloc(image_size);//(uintptr_t)job_dispatcher.AxidmaMalloc(image_size);
         job_descriptors.push_back(new_job_descriptor);
     }
 

@@ -12,6 +12,10 @@
 #include <thread>
 #include <iostream>
 
+
+
+
+
 JobDispatcher::JobDispatcher(E_DISPATCH_MODE _dispatch_mode) :
     next_available_job_ID(0),
     dispatch_mode(_dispatch_mode),
@@ -60,6 +64,11 @@ bool JobDispatcher::TryDispatchJob()
         if (!accelerator_full && !dispatch_request_in_flight) {
             #ifdef ZYNQ_COMPILE
             std::cout << "Sending Job Request" << std::endl;
+            JobDescriptor &job_to_submit = pending_jobs.front().job_descriptor;
+            uintptr_t ps_addr = job_to_submit.OUTPUT_IMAGE_LOCATION;
+            uintptr_t pl_addr = (uintptr_t)AxidmaMalloc(job_to_submit.IMAGE_SIZE() * sizeof(PIXEL4_T));
+            pl_to_ps_output_addr_map[pl_addr] = ps_addr;
+            job_to_submit.OUTPUT_IMAGE_LOCATION = pl_addr;
             bool submitted = driver.SendJobRequest(pending_jobs.front());
             if (submitted) {
                 dispatch_request_in_flight = true;
@@ -113,6 +122,8 @@ bool JobDispatcher::ReadJobStatusMessage(JOB_STATUS_MESSAGE &read_message)
     #endif
     return status;
 }
+
+
 
 void JobDispatcher::MainDispatcherThreadLoop()
 {
@@ -189,6 +200,13 @@ void JobDispatcher::MainDispatcherThreadLoop()
 //                    ASSERT(executing_jobs.front().job_ID == job_status.job_ID, "Got out of order job completion - currently unexpected in the design");
                     auto job_time = std::chrono::system_clock::now() - job_start_times[job_status.job_ID];
                     auto num_microseconds = std::chrono::duration_cast<std::chrono::microseconds> (job_time);
+
+                    const JobDescriptor &completed_job_descriptor = executing_jobs.front().job_descriptor;
+                    void *const pl_addr = (void*)completed_job_descriptor.OUTPUT_IMAGE_LOCATION;
+                    const int image_size_in_bytes = completed_job_descriptor.IMAGE_SIZE() * sizeof(PIXEL4_T);
+                    void *const ps_addr = (void*)pl_to_ps_output_addr_map.at((uintptr_t)pl_addr);
+                    const bool pl_to_ps_copy_success = driver.PL_to_PS_DMA(ps_addr, pl_addr, image_size_in_bytes);
+                    pl_to_ps_output_addr_map.erase((uintptr_t)pl_addr);
 
                     finished_jobs.push_back({num_microseconds, job_status.job_ID, 
                                              executing_jobs.front().job_descriptor.IMAGE_SIZE(), 

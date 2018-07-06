@@ -22,6 +22,7 @@
 #include <unistd.h>             // Close() system call
 #include <errno.h>              // Error codes
 #include <signal.h>             // Signal handling functions
+#include <string>
 
 #include "libaxidma.hpp"          // Local definitions
 #include "axidma_ioctl.hpp"       // The IOCTL interface to AXI DMA
@@ -272,12 +273,12 @@ static unsigned long dir_to_ioctl(enum axidma_dir dir)
 
 /* Initializes the AXI DMA device, returning a new handle to the
  * axidma_device. */
-struct axidma_dev *axidma_init()
+struct axidma_dev *axidma_init(std::string dma_name)
 {
     assert(!axidma_dev.initialized);
 
     // Open the AXI DMA device
-    axidma_dev.fd = open(AXIDMA_DEV_PATH, O_RDWR|O_EXCL);
+    axidma_dev.fd = open(dma_name.c_str(), O_RDWR|O_EXCL);
     if (axidma_dev.fd < 0) {
         perror("Error opening AXI DMA device");
         fprintf(stderr, "Expected the AXI DMA device at the path `%s`\n",

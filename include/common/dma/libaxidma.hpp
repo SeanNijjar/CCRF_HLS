@@ -57,7 +57,7 @@ typedef void (*axidma_cb_t)(int channel_id, void *data);
  *
  * @return A handle to the AXI DMA device on success, NULL on failure.
  **/
-struct axidma_dev *axidma_init();
+struct axidma_dev *axidma_init(std::string dma_name);
 
 /**
  * Tears down and destroys an AXI DMA device, deallocating its resources.

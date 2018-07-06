@@ -13,6 +13,61 @@ uintptr_t CCRF_SCRATCHPAD_START_ADDR = (uintptr_t)0x0;
 uintptr_t CCRF_SCRATCHPAD_END_ADDR = (uintptr_t)0x0;
 
 #ifdef ZYNQ_COMPILE
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/mman.h>
+
+//#include <axilite_regrw.h>
+
+#define AXILITE_FINALIMAGEADDR_REGOFFSET 0x10 // /*in the future it would be included in a header file,
+#define AXILITE_FINALIMAGESIZE_REGOFFSET 0x20 // 
+#define AXILITE_REGSIZE 0x10000               //  
+#define AXILITE_MAPBASE 0xA0000000            // I'll take care of this*/
+
+/*in your c program, change above 4 define lines to following line:
+#include <axilite_regrw.h>
+*/
+
+//this function would also be included in axilite_regrw.c, you don't have to include this function in your code######
+void axilite_write(volatile void* map_base, int offset, uintptr_t value) {
+        volatile void* virt_addr = (volatile void*)((char*)map_base + offset);
+        *((uintptr_t *) virt_addr) = value;
+}
+//###################################################################################################################
+
+/*insert all the lines in main function to you code after where you got the final image addr and size. In the future
+I may need your help to insert more code but right now it just like this*/
+bool ZynqHardwareDriver::PL_to_PS_DMA(void *const ps_addr, void * const pl_addr, size_t image_size_in_bytes)
+{
+
+    unsigned int ctrlreg_size = AXILITE_REGSIZE;
+    off_t ctrlreg_pbase = AXILITE_MAPBASE; // physical base address
+    char *ctrlreg_vptr;
+    char *ctrlreg_ptr;
+    int fd;
+    uintptr_t finalimage_addr = (uintptr_t)pl_addr; // you just need to modify here to write the correct 
+    unsigned int finalimage_size = image_size_in_bytes;   // final image addr and size
+
+    // Map the AXILITE physical address into user space getting a virtual address for it
+    if ((fd = open("/dev/mem", O_RDWR | O_SYNC)) != -1) {
+            ctrlreg_vptr = (char*)mmap(NULL, ctrlreg_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, ctrlreg_pbase);
+            std::cout << "Memory mapped at address " << ctrlreg_vptr << std::endl;
+            axilite_write(ctrlreg_vptr, AXILITE_FINALIMAGEADDR_REGOFFSET, finalimage_addr);
+            axilite_write(ctrlreg_vptr, AXILITE_FINALIMAGESIZE_REGOFFSET, finalimage_size);
+            close(fd);
+    } else {
+            std::cout << "error!!!" << std::endl;
+    }
+
+    int status = axidma_oneway_transfer(axidma_mem, rx_chans_mem->data[0], ps_addr, image_size_in_bytes, false);
+    if (status != 0) {
+        std::cout << "Error during copyback of output image" << std::endl;
+        return false;
+    }
+    return true;
+}
+
 bool ZynqHardwareDriver::SendJobRequest(JobPackage &job)
 {
     #ifdef LOOPBACK_TEST
@@ -88,8 +143,9 @@ ZynqHardwareDriver::ZynqHardwareDriver(
     struct stat input_stat;
 
     // Initialize the AXIDMA device
-    axidma_dev = axidma_init();
-    if (axidma_dev == NULL) {
+    axidma_dev = axidma_init("/dev/axidma");
+    axidma_mem = axidma_init("/dev/mem");
+    if (axidma_mem == NULL || axidma_dev == NULL) {
         fprintf(stderr, "Error: Failed to initialize the AXI DMA device.\n");
         rc = 1;
         goto destroy_axidma;
@@ -109,9 +165,24 @@ ZynqHardwareDriver::ZynqHardwareDriver(
         goto destroy_axidma;
     }
 
+    tx_chans_mem = axidma_get_dma_tx(axidma_mem);
+    if (tx_chans->len < 1) {
+        fprintf(stderr, "Error: No transmit channels were found.\n");
+        rc = -ENODEV;
+        goto destroy_axidma;
+    }
+    rx_chans_mem = axidma_get_dma_rx(axidma_mem);
+    if (rx_chans->len < 1) {
+        fprintf(stderr, "Error: No receive channels were found.\n");
+        rc = -ENODEV;
+        goto destroy_axidma;
+    }
+
     std::cout << "AXI DMA File Transfer Info: " << std::endl;
-    std::cout << "\tTransmit Channel: " << tx_chans->data[0] << std::endl;
-    std::cout << "\tReceive Channel: " << rx_chans->data[0] << std::endl;
+    std::cout << "\tTransmit Channel (axidma): " << tx_chans->data[0] << std::endl;
+    std::cout << "\tReceive Channel (axidma): " << rx_chans->data[0] << std::endl;
+    std::cout << "\tTransmit Channel (axidma pl mem): " << tx_chans_mem->data[0] << std::endl;
+    std::cout << "\tReceive Channel (axidma pl mem): " << rx_chans_mem->data[0] << std::endl;
 
     // Initialize transfer buffers - must come before scratchpad initialize
     job_package_axidma_buffer = (JobPackage*)AxidmaMalloc(sizeof(JobPackage));
@@ -128,6 +199,7 @@ ZynqHardwareDriver::ZynqHardwareDriver(
 
 destroy_axidma:
     axidma_destroy(axidma_dev);
+    axidma_destroy(axidma_mem);
 end: {}
 }
 
@@ -138,6 +210,7 @@ ZynqHardwareDriver::~ZynqHardwareDriver()
     AxidmaFree((void*)job_status_axidma_buffer, job_status_axidma_buffer_size);
     AxidmaFree((void*)scratchpad_start_addr, scratchpad_size_in_bytes);
     axidma_destroy(axidma_dev);
+    axidma_destroy(axidma_mem);
 }
 
 void ZynqHardwareDriver::InitializeHardwareScratchpadMemory()
