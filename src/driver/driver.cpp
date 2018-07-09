@@ -55,7 +55,7 @@ bool ZynqHardwareDriver::PL_to_PS_DMA(void *const ps_addr, void * const pl_addr,
     printf("Memory mapped at address %p.\n", dma_vptr);
 
     //the write_addr and write_size should be modified, it should be the addr and size of the final image in PL DDR
-    DMA_Read(dma_vptr, ADDR_LOWER(pl_addr), ADDR_LOWER(pl_addr), transfer_size);
+    DMA_S2MM(dma_vptr, ADDR_LOWER(pl_addr), ADDR_LOWER(pl_addr), transfer_size);
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     int wait_time = 0;
@@ -110,7 +110,7 @@ bool ZynqHardwareDriver::PlDmaWrite(const uintptr_t pl_addr, const int transfer_
     printf("Memory mapped at address %p.\n", dma_vptr);
     unsigned int write_addr_lower = ADDR_LOWER(write_addr);
     unsigned int write_addr_upper = ADDR_UPPER(write_addr);
-    DMA_Write(dma_vptr, write_addr_lower, write_addr_upper, write_size);
+    DMA_MM2S(dma_vptr, write_addr_lower, write_addr_upper, write_size);
     int wait_time = 0;
     do {
             sleep(0.0000001);

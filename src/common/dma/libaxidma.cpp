@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <string.h>             // Memset and memcpy functions
 #include <fcntl.h>              // Flags for open()
 #include <sys/stat.h>           // Open() system call
 #include <sys/types.h>          // Types for open()
@@ -22,7 +23,6 @@
 #include <unistd.h>             // Close() system call
 #include <errno.h>              // Error codes
 #include <signal.h>             // Signal handling functions
-#include <string>
 
 #include "libaxidma.hpp"          // Local definitions
 #include "axidma_ioctl.hpp"       // The IOCTL interface to AXI DMA
@@ -32,7 +32,7 @@
 
 
 // The DMA device structure, and a boolean checking if it's already open
-//struct axidma_dev axidma_dev = {0};
+struct axidma_dev dma_dev = {0};
 
 /*----------------------------------------------------------------------------
  * Private Helper Functions
@@ -68,7 +68,7 @@ static int categorize_channels(axidma_dev_t dev,
         return -ENOMEM;
     }
 
-        // Allocate arrays for the VDMA channel ids
+    // Allocate arrays for the VDMA channel ids
     dev->vdma_tx_chans.data = (int*)malloc(num_chan->num_vdma_tx_channels *
             sizeof(dev->vdma_tx_chans.data[0]));
     if (dev->vdma_tx_chans.data == NULL) {
@@ -109,7 +109,7 @@ static int categorize_channels(axidma_dev_t dev,
         array->data[array->len] = chan->channel_id;
         array->len += 1;
 
-                // Construct the DMA channel structure
+        // Construct the DMA channel structure
         dma_chan = &dev->channels[i];
         dma_chan->dir = chan->dir;
         dma_chan->type = chan->type;
@@ -158,19 +158,19 @@ static int probe_channels(axidma_dev_t dev)
         return rc;
     }
 
-        // Extract the channel id's, and organize them by type
+    // Extract the channel id's, and organize them by type
     rc = categorize_channels(dev, channels, &num_chan);
     free(channels);
 
     return rc;
 }
 
-static void axidma_callback(axidma_dev_t dev, int signal, siginfo_t *siginfo, void *context)
+static void axidma_callback(int signal, siginfo_t *siginfo, void *context)
 {
     int channel_id;
     dma_channel_t *chan;
 
-    assert(0 <= siginfo->si_int && siginfo->si_int < dev->num_channels);
+    assert(0 <= siginfo->si_int && siginfo->si_int < dma_dev.num_channels);
 
     // Silence the compiler
     (void)signal;
@@ -178,7 +178,7 @@ static void axidma_callback(axidma_dev_t dev, int signal, siginfo_t *siginfo, vo
 
     // If the user defined a callback for a given channel, invoke it
     channel_id = siginfo->si_int;
-    chan = &dev->channels[channel_id];
+    chan = &dma_dev.channels[channel_id];
     if (chan->callback != NULL) {
         chan->callback(channel_id, chan->user_data);
     }
@@ -191,7 +191,6 @@ static void axidma_callback(axidma_dev_t dev, int signal, siginfo_t *siginfo, vo
 // TODO: Should really check if real time signal is being used
 static int setup_dma_callback(axidma_dev_t dev)
 {
-    /*
     int rc;
     struct sigaction sigact;
 
@@ -199,7 +198,7 @@ static int setup_dma_callback(axidma_dev_t dev)
     sigact.sa_sigaction = axidma_callback;
     sigemptyset(&sigact.sa_mask);
     sigact.sa_flags = SA_RESTART | SA_SIGINFO;
-    rc = sigaction(SIGRTMIN, &sigact, NULL);
+    rc = sigaction( SIGRTMIN, &sigact, NULL);
     if (rc < 0) {
         perror("Failed to register DMA callback");
         return rc;
@@ -211,7 +210,7 @@ static int setup_dma_callback(axidma_dev_t dev)
         perror("Failed to set the DMA callback signal");
         return rc;
     }
-    */
+
     return 0;
 }
 
@@ -255,15 +254,12 @@ static unsigned long dir_to_ioctl(enum axidma_dir dir)
  * axidma_device. */
 struct axidma_dev *axidma_init(std::string dma_name, std::string dma_mem_name)
 {
-    axidma_dev *dev = new axidma_dev;
-    assert(!dev->initialized);
-
-
+    assert(!dma_dev.initialized);
 
     // Open the AXI DMA device
-    dev->fd = open(dma_name.c_str(), O_RDWR | O_EXCL);
-    dev->fd_mem = open(dma_mem_name.c_str(), O_RDWR | O_SYNC);
-    if (dev->fd < 0) {
+    dma_dev.fd = open(dma_name.c_str(), O_RDWR|O_EXCL|O_SYNC);
+//  dma_dev.fd_mem = open(dma_mem_name.c_str(), O_RDWR | O_SYNC);
+    if (dma_dev.fd < 0) {
         perror("Error opening AXI DMA device");
         fprintf(stderr, "Expected the AXI DMA device at the path `%s`\n",
                 AXIDMA_DEV_PATH);
@@ -271,24 +267,24 @@ struct axidma_dev *axidma_init(std::string dma_name, std::string dma_mem_name)
     }
 
     // Query the AXIDMA device for all of its channels
-    if (probe_channels(dev) < 0) {
-        close(dev->fd);
-        close(dev->fd_mem);
+    if (probe_channels(&dma_dev) < 0) {
+        close(dma_dev.fd);
+        close(dma_dev.fd_mem);
         return NULL;
     }
 
     // TODO: Should really check that signal is not already taken
     /* Setup a real-time signal to indicate when transactions have completed,
      * and request the driver to send them to us. */
-    if (setup_dma_callback(dev) < 0) {
-        close(dev->fd);
-        close(dev->fd_mem);
+    if (setup_dma_callback(&dma_dev) < 0) {
+        close(dma_dev.fd);
+        close(dma_dev.fd_mem);
         return NULL;
     }
 
     // Return the AXI DMA device to the user
-    dev->initialized = true;
-    return dev;
+    dma_dev.initialized = true;
+    return &dma_dev;
 }
 
 // Tears down the given AXI DMA device structure
@@ -308,7 +304,7 @@ void axidma_destroy(axidma_dev_t dev)
     }
 
     // Free the device structure
-    dev->initialized = false;
+    dma_dev.initialized = false;
     return;
 }
 
@@ -455,9 +451,11 @@ int axidma_oneway_transfer(axidma_dev_t dev, int channel, void *buf,
 }
 
 /* This performs a two-way transfer over AXI DMA, both sending data out and
- * receiving it back over DMA. The user determines if this call is  blocking. */
+ * receiving it back over DMA. The user determines if this call is blocking. */
 int axidma_twoway_transfer(axidma_dev_t dev, int tx_channel, void *tx_buf,
-        size_t tx_len, int rx_channel, void *rx_buf, size_t rx_len, bool wait)
+        size_t tx_len, struct axidma_video_frame *tx_frame, int rx_channel,
+        void *rx_buf, size_t rx_len, struct axidma_video_frame *rx_frame,
+        bool wait)
 {
     int rc;
     struct axidma_inout_transaction trans;
@@ -475,6 +473,18 @@ int axidma_twoway_transfer(axidma_dev_t dev, int tx_channel, void *tx_buf,
     trans.rx_channel_id = rx_channel;
     trans.rx_buf = rx_buf;
     trans.rx_buf_len = rx_len;
+
+    // Copy in the video frame if it is specified
+    if (tx_frame == NULL) {
+        memset(&trans.tx_frame, -1, sizeof(trans.tx_frame));
+    } else {
+        memcpy(&trans.tx_frame, tx_frame, sizeof(trans.tx_frame));
+    }
+    if (rx_frame == NULL) {
+        memset(&trans.rx_frame, -1, sizeof(trans.rx_frame));
+    } else {
+        memcpy(&trans.rx_frame, rx_frame, sizeof(trans.rx_frame));
+    }
 
     // Perform the read-write transfer
     rc = ioctl(dev->fd, AXIDMA_DMA_READWRITE, &trans);
@@ -505,9 +515,9 @@ int axidma_video_transfer(axidma_dev_t dev, int display_channel, size_t width,
     trans.channel_id = display_channel;
     trans.num_frame_buffers = num_buffers;
     trans.frame_buffers = frame_buffers;
-    trans.width = width;
-    trans.height = height;
-    trans.depth = depth;
+    trans.frame.width = width;
+    trans.frame.height = height;
+    trans.frame.depth = depth;
     axidma_cmd = (dma_chan->dir == AXIDMA_READ) ? AXIDMA_DMA_VIDEO_READ :
                                                   AXIDMA_DMA_VIDEO_WRITE;
     // Perform the video transfer

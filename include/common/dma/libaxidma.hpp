@@ -14,7 +14,7 @@
 #include "types.hpp"
 #include "axidma_ioctl.hpp"
 #include <cstddef>
-
+#include <string>
 
 /**
  * A structure that represents an integer array.

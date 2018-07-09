@@ -7,22 +7,22 @@
 
 int axilite_read(volatile void* map_base, int offset);
 void axilite_write(volatile void* map_base, int offset, int value);
-void DMA_Write(volatile void* map_base, int address_low, int address_high, int size);
-void DMA_Read(volatile void* map_base, int address_low, int address_high, int size);
+void DMA_S2MM(volatile void* map_base, int address_low, int address_high, int size);
+void DMA_MM2S(volatile void* map_base, int address_low, int address_high, int size);
 void timespec_sub(struct timespec *t1, const struct timespec *t2);
-#define DMA_BASE        0xA0010000
-#define DMA_RegSize     0x00001000
+#define DMA_BASE	0xA0010000
+#define DMA_RegSize	0x00001000
 
-#define DMA_TX_OFFSET   0x00000000
-#define DMA_RX_OFFSET   0x00000030
+#define DMA_MM2S_OFFSET	0x00000000
+#define DMA_S2MM_OFFSET	0x00000030
 
-#define DMA_CtrlReg_OFFSET      0x00000000   /**< Channel control */
-#define DMA_StatsReg_OFFSET     0x00000004   /**< Status */
+#define DMA_CtrlReg_OFFSET	0x00000000   /**< Channel control */
+#define DMA_StatsReg_OFFSET	0x00000004   /**< Status */
 
-#define DMA_MemLoc_OFFSET       0x00000018
-#define DMA_MemLoc_MSB_OFFSET   0x0000001C
+#define DMA_MemLoc_OFFSET	0x00000018
+#define DMA_MemLoc_MSB_OFFSET	0x0000001C
 
-#define DMA_BUFFLEN_OFFSET      0x00000028
+#define DMA_BUFFLEN_OFFSET	0x00000028
 
 // @name Bitmasks of DMA_CtrlReg_OFFSET register
 #define XAXIDMA_CR_RUNSTOP_MASK 0x00000001 /**< Start/stop DMA channel */
