@@ -44,8 +44,25 @@ void axilite_write(volatile void* map_base, int offset, uintptr_t value) {
 
 /*insert all the lines in main function to you code after where you got the final image addr and size. In the future
 I may need your help to insert more code but right now it just like this*/
-bool ZynqHardwareDriver::PL_to_PS_DMA(void *const ps_addr, void * const pl_addr, size_t transfer_size)
+bool ZynqHardwareDriver::PL_to_PS_DMA(void *const axidma_transfer_buffer, void *const ps_addr, void * const pl_addr, size_t transfer_size)
 {    
+    //the write_addr and write_size should be modified, it should be the addr and size of the final image in PL DDR
+    off_t dmactrlreg_base = DMA_BASE;
+    int dmactrlreg_size = DMA_RegSize;
+    struct timespec ts_start, ts_end;
+    int wait_time;
+    int output_channel = axidma_get_dma_rx(axidma_dev)->data[0];
+    char *const dma_vptr = (char *const) mmap(NULL, dmactrlreg_size, PROT_READ|PROT_WRITE, MAP_SHARED, axidma_dev->fd_mem, dmactrlreg_base);
+	DMA_MM2S(dma_vptr, ADDR_LOWER(pl_addr), ADDR_UPPER(pl_addr), transfer_size); // does this go here?
+    int rc = axidma_oneway_transfer(axidma_dev, output_channel, axidma_transfer_buffer, transfer_size, true);
+    if (rc < 0) {
+        fprintf(stderr, "r : DMA read write transaction failed.\n");
+        //goto destroy_axidma;
+        return false;
+    }
+    memcpy(ps_addr, axidma_transfer_buffer, transfer_size);
+
+    /*
     uintptr_t final_image_addr = (uintptr_t)pl_addr; // you just need to modify here to write the correct 
     unsigned int final_image_size = transfer_size;   // final image addr and size
     int dmactrlreg_size = DMA_RegSize;
@@ -74,61 +91,65 @@ bool ZynqHardwareDriver::PL_to_PS_DMA(void *const ps_addr, void * const pl_addr,
             printf("Spent %ld.%09ld seconds (total) for DMA Read\n", ts_end.tv_sec, ts_end.tv_nsec);
     }
     memcpy(ps_addr, dma_vptr, transfer_size);
-
-    // Map the AXILITE physical address into user space getting a virtual address for it
-    /*
-    //unsigned int ctrlreg_size = AXILITE_REGSIZE;
-    //off_t ctrlreg_pbase = AXILITE_MAPBASE; // physical base address
-    ///char *ctrlreg_vptr;
-    //char *ctrlreg_ptr;
-    //int fd;
-    ctrlreg_vptr = (char*)mmap(NULL, ctrlreg_size, PROT_READ|PROT_WRITE, MAP_SHARED, fd, ctrlreg_pbase);
-    std::cout << "Memory mapped at address " << ctrlreg_vptr << std::endl;
-    axilite_write(ctrlreg_vptr, AXILITE_FINALIMAGEADDR_REGOFFSET, finalimage_addr);
-    axilite_write(ctrlreg_vptr, AXILITE_FINALIMAGESIZE_REGOFFSET, transfer_size);
-
-    int status = axidma_oneway_transfer(axidma_mem, rx_chans_mem->data[0], ps_addr, image_size_in_bytes, false);
-    if (status != 0) {
-        std::cout << "Error during copyback of output image" << std::endl;
-        return false;
-    }
     */
     return true;
 }
 
 
 
-bool ZynqHardwareDriver::PlDmaWrite(const uintptr_t pl_addr, const int transfer_size)
+bool ZynqHardwareDriver::PlDmaWrite(void *axidma_buffer_data,  void *user_buffer, const uintptr_t pl_addr, const int transfer_size)
 {
+    memcpy(axidma_buffer_data, user_buffer, transfer_size);
+    // int rc = axidma_oneway_transfer(axidma_dev, tx_chans->data[0], 
+    //                                 axidma_buffer_data, 
+    //                                 transfer_size, 
+    //                                 false);
+
     int dmactrlreg_size = DMA_RegSize;
     off_t dmactrlreg_base = DMA_BASE;
     uintptr_t write_addr = pl_addr;
-    int write_size = transfer_size;
     struct timespec ts_start, ts_end;
-    clock_gettime(CLOCK_MONOTONIC, &ts_start);
     char *const dma_vptr = (char *const) mmap(NULL, dmactrlreg_size, PROT_READ|PROT_WRITE, MAP_SHARED, axidma_dev->fd_mem, dmactrlreg_base);
-    printf("Memory mapped at address %p.\n", dma_vptr);
-    unsigned int write_addr_lower = ADDR_LOWER(write_addr);
-    unsigned int write_addr_upper = ADDR_UPPER(write_addr);
-    DMA_MM2S(dma_vptr, write_addr_lower, write_addr_upper, write_size);
-    int wait_time = 0;
-    do {
-            sleep(0.0000001);
-            wait_time++;
-    }
-    while (!(axilite_read(dma_vptr, DMA_TX_OFFSET+DMA_CtrlReg_OFFSET) & XAXIDMA_IDLE_MASK) && wait_time < 5000); /*
-                                                                            check when the transimitting finished*/
-    if ( wait_time == 5000 ) {
-            printf("timeout!\n");
-            axidma_destroy(axidma_dev);
-    } else {
-            clock_gettime(CLOCK_MONOTONIC, &ts_end);
-            timespec_sub(&ts_end, &ts_start);
-            printf("Spent %ld.%09ld seconds for DMA write\n", ts_end.tv_sec, ts_end.tv_nsec);
-    }
+
+	printf("Memory mapped at address %p.\n", dma_vptr);
+	clock_gettime(CLOCK_MONOTONIC, &ts_start);
+
+	//reset before use////////////////////////////////
+	axilite_write(dma_vptr, DMA_S2MM_OFFSET+DMA_CtrlReg_OFFSET, axilite_read(dma_vptr, DMA_S2MM_OFFSET+DMA_CtrlReg_OFFSET) | XAXIDMA_CR_RESET_MASK );
+	axilite_write(dma_vptr, DMA_MM2S_OFFSET+DMA_CtrlReg_OFFSET, axilite_read(dma_vptr, DMA_MM2S_OFFSET+DMA_CtrlReg_OFFSET) | XAXIDMA_CR_RESET_MASK );
+	//////////////////////////////////////////////////
+
+	int wait_time = 0;
+
+    int input_channel = axidma_get_dma_tx(axidma_dev)->data[0];
+	//first DMA write PS mem data to second DMA/////////////////////////////////////////////////////
+	int rc = axidma_oneway_transfer(axidma_dev, input_channel, axidma_buffer_data, transfer_size, false);	
+	if (rc < 0) {
+		fprintf(stderr, "w : DMA read write transaction failed.\n");
+		return false;
+	}
+	////////////////////////////////////////////////////////////////////////////////////////////////
+
+	DMA_S2MM(dma_vptr, ADDR_LOWER(pl_addr), ADDR_UPPER(pl_addr), transfer_size);
+
+	do {
+		sleep(0.001);
+		wait_time++;
+	}
+	while (!(axilite_read(dma_vptr, DMA_S2MM_OFFSET+DMA_StatsReg_OFFSET) & XAXIDMA_IDLE_MASK) && wait_time < 50000); /*
+										check when the transimitting finished*/
+	if ( wait_time == 50000 ) {
+		printf("timeout!\n");
+		return false;
+	} else {
+		clock_gettime(CLOCK_MONOTONIC, &ts_end);
+		timespec_sub(&ts_end, &ts_start);
+		printf("Spent %ld.%09ld seconds for DMA write (%d cycles)\n", ts_end.tv_sec, ts_end.tv_nsec, wait_time);
+	}
+    return true;
 }
 
-bool ZynqHardwareDriver::AxidmaSendData(void *axidma_buffer_data, void *user_buffer, size_t transfer_size)
+bool ZynqHardwareDriver::AxidmaSendStreamData(void *axidma_buffer_data, void *user_buffer, size_t transfer_size)
 {
     memcpy(axidma_buffer_data, user_buffer, transfer_size);
     int rc = axidma_oneway_transfer(axidma_dev, tx_chans->data[0], 
@@ -149,7 +170,7 @@ bool ZynqHardwareDriver::SendJobRequest(JobPackage &job)
     void *job_buffer = &job;
     #endif
 
-    bool successful = AxidmaSendData(job_package_axidma_buffer, job_buffer, job_package_axidma_buffer_size);
+    bool successful = AxidmaSendStreamData(job_package_axidma_buffer, job_buffer, job_package_axidma_buffer_size);
     std::cout << "Done one-way transfer" << std::endl;
     return successful;
 }

@@ -94,7 +94,7 @@ class JobDispatcher
 
   private:
     bool TransferInputImagesToDevice(JobDescriptor &job_descriptor);
-    
+
     bool JobResponseQueueHasData();
 
     bool ReadJobStatusMessage(JOB_STATUS_MESSAGE &read_message);
@@ -124,6 +124,7 @@ class JobDispatcher
     std::queue<JobPackage> executing_jobs;
     std::vector<FINISHED_JOB_RECORD> finished_jobs;
   
+    uintptr_t axidma_output_image_transfer_buffer;
     uintptr_t axidma_input_image_transfer_buffers[6];
 
     std::vector<JobDescriptor> incoming_job_queue;

@@ -33,6 +33,7 @@ JobDispatcher::JobDispatcher(E_DISPATCH_MODE _dispatch_mode) :
     for (int i = 0; i < 6; ++i) {
         axidma_input_image_transfer_buffers[i] = (uintptr_t)driver.AxidmaMalloc(max_image_size);
     }
+    axidma_output_image_transfer_buffer = (uintptr_t)driver.AxidmaMalloc(max_image_size);
 }
 
 JobDispatcher::~JobDispatcher()
@@ -67,10 +68,10 @@ bool JobDispatcher::TransferInputImagesToDevice(JobDescriptor &job_descriptor)
         const uintptr_t image_pl_addr = (uintptr_t)driver.DeviceMalloc(transfer_size);
 
         //first DMA write PS mem data to second DMA
-        driver.AxidmaSendData((void*)axidma_input_image_transfer_buffers[i], (void*)job_descriptor.INPUT_IMAGES[i], transfer_size);
+        //driver.AxidmaSendData((void*)axidma_input_image_transfer_buffers[i], (void*)job_descriptor.INPUT_IMAGES[i], transfer_size);
 
         //second DMA write data to PL DMA///////////////////////////////////////////////////////////////
-        bool pl_dma_write_success = driver.PlDmaWrite(image_pl_addr, transfer_size);
+        bool pl_dma_write_success = driver.PlDmaWrite((void *const)axidma_input_image_transfer_buffers[i], (void *const)job_descriptor.INPUT_IMAGES[i], image_pl_addr, transfer_size);
 
         // update the PL to PS DDR address mappings
         pl_to_ps_output_addr_map[image_pl_addr] = job_descriptor.INPUT_IMAGES[i];
@@ -234,7 +235,7 @@ void JobDispatcher::MainDispatcherThreadLoop()
                     void *const pl_addr = (void*)completed_job_descriptor.OUTPUT_IMAGE_LOCATION;
                     const int image_size_in_bytes = completed_job_descriptor.IMAGE_SIZE() * sizeof(PIXEL4_T);
                     void *const ps_addr = (void*)pl_to_ps_output_addr_map.at((uintptr_t)pl_addr);
-                    const bool pl_to_ps_copy_success = driver.PL_to_PS_DMA(ps_addr, pl_addr, image_size_in_bytes);
+                    const bool pl_to_ps_copy_success = driver.PL_to_PS_DMA((void *const)axidma_output_image_transfer_buffer, ps_addr, pl_addr, image_size_in_bytes);
                     completed_job_descriptor.OUTPUT_IMAGE_LOCATION = (uintptr_t)ps_addr;
 
                     // Restore the PS input image DDR addresses
