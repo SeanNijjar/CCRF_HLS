@@ -62,6 +62,7 @@ typedef struct dma_channel {
 struct axidma_dev {
     bool initialized;           ///< Indicates initialization for this struct.
     int fd;                     ///< File descriptor for the device
+    int fd_mem;
     array_t dma_tx_chans;       ///< Channel id's for the DMA transmit channels
     array_t dma_rx_chans;       ///< Channel id's for the DMA receive channels
     array_t vdma_tx_chans;      ///< Channel id's for the VDMA transmit channels
@@ -87,7 +88,7 @@ typedef struct axidma_dev* axidma_dev_t;
  *
  * @return A handle to the AXI DMA device on success, NULL on failure.
  **/
-struct axidma_dev *axidma_init(std::string dma_name);
+struct axidma_dev *axidma_init(std::string dma_name, std::string dma_mem_name);
 
 /**
  * Tears down and destroys an AXI DMA device, deallocating its resources.

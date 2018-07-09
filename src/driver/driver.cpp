@@ -211,8 +211,7 @@ ZynqHardwareDriver::ZynqHardwareDriver(
     struct stat input_stat;
 
     // Initialize the AXIDMA device
-    axidma_dev = axidma_init("/dev/axidma");
-    axidma_mem = axidma_init("/dev/mem");
+    axidma_dev = axidma_init("/dev/axidma", "/dev/mem");
     if (axidma_mem == NULL || axidma_dev == NULL) {
         fprintf(stderr, "Error: Failed to initialize the AXI DMA device.\n");
         rc = 1;
