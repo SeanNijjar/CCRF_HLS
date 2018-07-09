@@ -12,22 +12,9 @@
 #define LIBAXIDMA_H_
 
 #include "types.hpp"
+#include "axidma_ioctl.hpp"
 #include <cstddef>
-/**
- * The struct representing an AXI DMA device.
- *
- * This is an opaque type to the end user, so it can only be used as a pointer
- * or handle.
- **/
-struct axidma_dev;
 
-/**
- * Type definition for an AXI DMA device.
- *
- * This is a pointer to an opaque struct, so the user cannot access any of the
- * internal fields.
- **/
-typedef struct axidma_dev* axidma_dev_t;
 
 /**
  * A structure that represents an integer array.
@@ -39,6 +26,13 @@ typedef struct array {
     int *data;      ///< Pointer to the memory buffer for the array
 } array_t;
 
+/*----------------------------------------------------------------------------
+ * Internal definitions
+ *----------------------------------------------------------------------------*/
+
+
+
+
 /**
  * Type definition for a AXI DMA callback function.
  *
@@ -47,6 +41,42 @@ typedef struct array {
  * channel that has finished, and the generic data the user registered.
  **/
 typedef void (*axidma_cb_t)(int channel_id, void *data);
+
+// A structure that holds metadata about each channel
+typedef struct dma_channel {
+    enum axidma_dir dir;        ///< Direction of the channel
+    enum axidma_type type;      ///< Type of the channel
+    int channel_id;             ///< Integer id of the channel.
+    axidma_cb_t callback;       ///< Callback function for channel completion
+    void *user_data;            ///< User data to pass to the callback
+} dma_channel_t;
+
+
+/**
+ * The struct representing an AXI DMA device.
+ *
+ * This is an opaque type to the end user, so it can only be used as a pointer
+ * or handle.
+ **/
+// The structure that represents the AXI DMA device
+struct axidma_dev {
+    bool initialized;           ///< Indicates initialization for this struct.
+    int fd;                     ///< File descriptor for the device
+    array_t dma_tx_chans;       ///< Channel id's for the DMA transmit channels
+    array_t dma_rx_chans;       ///< Channel id's for the DMA receive channels
+    array_t vdma_tx_chans;      ///< Channel id's for the VDMA transmit channels
+    array_t vdma_rx_chans;      ///< Channel id's for the VDMA receive channels
+    int num_channels;           ///< The total number of DMA channels
+    dma_channel_t *channels;    ///< All of the VDMA/DMA channels in the system
+};
+
+/**
+ * Type definition for an AXI DMA device.
+ *
+ * This is a pointer to an opaque struct, so the user cannot access any of the
+ * internal fields.
+ **/
+typedef struct axidma_dev* axidma_dev_t;
 
 /**
  * Initializes an AXI DMA device, returning a handle to the device.

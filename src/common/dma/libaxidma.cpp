@@ -27,30 +27,9 @@
 #include "libaxidma.hpp"          // Local definitions
 #include "axidma_ioctl.hpp"       // The IOCTL interface to AXI DMA
 
-/*----------------------------------------------------------------------------
- * Internal definitions
- *----------------------------------------------------------------------------*/
 
-// A structure that holds metadata about each channel
-typedef struct dma_channel {
-    enum axidma_dir dir;        ///< Direction of the channel
-    enum axidma_type type;      ///< Type of the channel
-    int channel_id;             ///< Integer id of the channel.
-    axidma_cb_t callback;       ///< Callback function for channel completion
-    void *user_data;            ///< User data to pass to the callback
-} dma_channel_t;
 
-// The structure that represents the AXI DMA device
-struct axidma_dev {
-    bool initialized;           ///< Indicates initialization for this struct.
-    int fd;                     ///< File descriptor for the device
-    array_t dma_tx_chans;       ///< Channel id's for the DMA transmit channels
-    array_t dma_rx_chans;       ///< Channel id's for the DMA receive channels
-    array_t vdma_tx_chans;      ///< Channel id's for the VDMA transmit channels
-    array_t vdma_rx_chans;      ///< Channel id's for the VDMA receive channels
-    int num_channels;           ///< The total number of DMA channels
-    dma_channel_t *channels;    ///< All of the VDMA/DMA channels in the system
-};
+
 
 // The DMA device structure, and a boolean checking if it's already open
 struct axidma_dev axidma_dev = {0};

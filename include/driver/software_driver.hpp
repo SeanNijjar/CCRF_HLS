@@ -30,6 +30,10 @@ class SoftwareTestDriver : public Driver
         InitializeCcrfUnitsAndQueues(default_ccrf_count);
     }
 
+    bool PlDmaWrite(const uintptr_t pl_addr, const int transfer_size);
+    bool AxidmaSendData(void *axidma_buffer_data, void *user_buffer, size_t transfer_size);
+
+    inline void *DeviceMalloc(size_t size_in_bytes) { return (void*) new char[size_in_bytes]; }
     inline void *AxidmaMalloc(size_t size_in_bytes) { return (void*) new char[size_in_bytes]; }
     inline void AxidmaFree(void *buffer, size_t buffer_size) { delete (char*)buffer; }
 

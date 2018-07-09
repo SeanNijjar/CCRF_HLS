@@ -76,6 +76,7 @@ class JobDispatcher
     void StartDispatcher();
     void StopDispatcher();
 
+    inline void *DeviceMalloc(size_t size_in_bytes) { return driver.DeviceMalloc(size_in_bytes); }
     inline void *AxidmaMalloc(size_t size_in_bytes) { return driver.AxidmaMalloc(size_in_bytes); }
     inline void AxidmaFree(void *buffer, size_t buffer_size) { driver.AxidmaFree(buffer, buffer_size); }
 
@@ -92,6 +93,8 @@ class JobDispatcher
     void PrintJobResultStats(void);
 
   private:
+    bool TransferInputImagesToDevice(JobDescriptor &job_descriptor);
+    
     bool JobResponseQueueHasData();
 
     bool ReadJobStatusMessage(JOB_STATUS_MESSAGE &read_message);
@@ -121,6 +124,7 @@ class JobDispatcher
     std::queue<JobPackage> executing_jobs;
     std::vector<FINISHED_JOB_RECORD> finished_jobs;
   
+    uintptr_t axidma_input_image_transfer_buffers[6];
 
     std::vector<JobDescriptor> incoming_job_queue;
     std::vector<JobPackage> outgoing_job_queue;

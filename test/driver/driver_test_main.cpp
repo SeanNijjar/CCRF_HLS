@@ -56,14 +56,14 @@ int main(int argc, char *argv[])
         JobDescriptor *new_job_descriptor = JobDescriptor::Create(*img_stack_iter);
 
         size_t image_size = new_job_descriptor->IMAGE_SIZE() * sizeof(PIXEL4_T);
-        int num_images = new_job_descriptor->LDR_IMAGE_COUNT;
-        for (int i = 0; i < num_images; i++) {//auto image : image_stack) {
-            PIXEL4_T *image = (PIXEL4_T*)job_dispatcher.AxidmaMalloc(image_size);
-            memcpy(image, (PIXEL4_T*)new_job_descriptor->INPUT_IMAGES[i], image_size);
-            delete (BYTE_T*)new_job_descriptor->INPUT_IMAGES[i];
-            new_job_descriptor->INPUT_IMAGES[i] = (uintptr_t)image;
-            std::cout << "Input image " << i << " address = " << image << std::endl;
-        }
+        //int num_images = new_job_descriptor->LDR_IMAGE_COUNT;
+        //for (int i = 0; i < num_images; i++) {//auto image : image_stack) {
+        //    PIXEL4_T *image = (PIXEL4_T*)job_dispatcher.AxidmaMalloc(image_size);
+        //    memcpy(image, (PIXEL4_T*)new_job_descriptor->INPUT_IMAGES[i], image_size);
+        //    delete (BYTE_T*)new_job_descriptor->INPUT_IMAGES[i];
+        //    new_job_descriptor->INPUT_IMAGES[i] = (uintptr_t)image;
+        //    std::cout << "Input image " << i << " address = " << image << std::endl;
+        //}
 
         new_job_descriptor->OUTPUT_IMAGE_LOCATION = (uintptr_t)malloc(image_size);//(uintptr_t)job_dispatcher.AxidmaMalloc(image_size);
         job_descriptors.push_back(new_job_descriptor);
