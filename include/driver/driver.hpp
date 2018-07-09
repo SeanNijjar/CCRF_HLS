@@ -86,7 +86,6 @@ class ZynqHardwareDriver : public Driver
     int output_channel;
     long int output_size; // in Bytes 
     axidma_dev_t axidma_dev; // transfer
-    axidma_dev_t axidma_mem;
     struct dma_transfer trans;
     struct dma_transfer trans_mem;
     const array_t *tx_chans, *rx_chans;

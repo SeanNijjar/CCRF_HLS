@@ -51,7 +51,7 @@ bool ZynqHardwareDriver::PL_to_PS_DMA(void *const ps_addr, void * const pl_addr,
     int dmactrlreg_size = DMA_RegSize;
     off_t dmactrlreg_base = DMA_BASE;
     struct timespec ts_start, ts_end;
-    char *const dma_vptr = (char *const)mmap(NULL, dmactrlreg_size, PROT_READ|PROT_WRITE, MAP_SHARED, axidma_mem->fd, dmactrlreg_base);
+    char *const dma_vptr = (char *const)mmap(NULL, dmactrlreg_size, PROT_READ|PROT_WRITE, MAP_SHARED, axidma_dev->fd_mem, dmactrlreg_base);
     printf("Memory mapped at address %p.\n", dma_vptr);
 
     //the write_addr and write_size should be modified, it should be the addr and size of the final image in PL DDR
@@ -68,7 +68,6 @@ bool ZynqHardwareDriver::PL_to_PS_DMA(void *const ps_addr, void * const pl_addr,
     if ( wait_time == 5000 ) {
             printf("timeout!\n");
             axidma_destroy(axidma_dev);
-            axidma_destroy(axidma_mem);
     } else {
             clock_gettime(CLOCK_MONOTONIC, &ts_end);
             timespec_sub(&ts_end, &ts_start);
@@ -107,7 +106,7 @@ bool ZynqHardwareDriver::PlDmaWrite(const uintptr_t pl_addr, const int transfer_
     int write_size = transfer_size;
     struct timespec ts_start, ts_end;
     clock_gettime(CLOCK_MONOTONIC, &ts_start);
-    char *const dma_vptr = (char *const) mmap(NULL, dmactrlreg_size, PROT_READ|PROT_WRITE, MAP_SHARED, axidma_mem->fd, dmactrlreg_base);
+    char *const dma_vptr = (char *const) mmap(NULL, dmactrlreg_size, PROT_READ|PROT_WRITE, MAP_SHARED, axidma_dev->fd_mem, dmactrlreg_base);
     printf("Memory mapped at address %p.\n", dma_vptr);
     unsigned int write_addr_lower = ADDR_LOWER(write_addr);
     unsigned int write_addr_upper = ADDR_UPPER(write_addr);
@@ -122,7 +121,6 @@ bool ZynqHardwareDriver::PlDmaWrite(const uintptr_t pl_addr, const int transfer_
     if ( wait_time == 5000 ) {
             printf("timeout!\n");
             axidma_destroy(axidma_dev);
-            axidma_destroy(axidma_mem);
     } else {
             clock_gettime(CLOCK_MONOTONIC, &ts_end);
             timespec_sub(&ts_end, &ts_start);
@@ -212,7 +210,7 @@ ZynqHardwareDriver::ZynqHardwareDriver(
 
     // Initialize the AXIDMA device
     axidma_dev = axidma_init("/dev/axidma", "/dev/mem");
-    if (axidma_mem == NULL || axidma_dev == NULL) {
+    if (axidma_dev == NULL) {
         fprintf(stderr, "Error: Failed to initialize the AXI DMA device.\n");
         rc = 1;
         goto destroy_axidma;
@@ -232,24 +230,9 @@ ZynqHardwareDriver::ZynqHardwareDriver(
         goto destroy_axidma;
     }
 
-    tx_chans_mem = axidma_get_dma_tx(axidma_mem);
-    if (tx_chans->len < 1) {
-        fprintf(stderr, "Error: No transmit channels were found.\n");
-        rc = -ENODEV;
-        goto destroy_axidma;
-    }
-    rx_chans_mem = axidma_get_dma_rx(axidma_mem);
-    if (rx_chans->len < 1) {
-        fprintf(stderr, "Error: No receive channels were found.\n");
-        rc = -ENODEV;
-        goto destroy_axidma;
-    }
-
     std::cout << "AXI DMA File Transfer Info: " << std::endl;
     std::cout << "\tTransmit Channel (axidma): " << tx_chans->data[0] << std::endl;
     std::cout << "\tReceive Channel (axidma): " << rx_chans->data[0] << std::endl;
-    std::cout << "\tTransmit Channel (axidma pl mem): " << tx_chans_mem->data[0] << std::endl;
-    std::cout << "\tReceive Channel (axidma pl mem): " << rx_chans_mem->data[0] << std::endl;
 
     // Initialize transfer buffers - must come before scratchpad initialize
     job_package_axidma_buffer = (JobPackage*)AxidmaMalloc(sizeof(JobPackage));
@@ -266,7 +249,6 @@ ZynqHardwareDriver::ZynqHardwareDriver(
 
 destroy_axidma:
     axidma_destroy(axidma_dev);
-    axidma_destroy(axidma_mem);
 end: {}
 }
 
@@ -277,7 +259,6 @@ ZynqHardwareDriver::~ZynqHardwareDriver()
     AxidmaFree((void*)job_status_axidma_buffer, job_status_axidma_buffer_size);
     AxidmaFree((void*)scratchpad_start_addr, scratchpad_size_in_bytes);
     axidma_destroy(axidma_dev);
-    axidma_destroy(axidma_mem);
 }
 
 void ZynqHardwareDriver::InitializeHardwareScratchpadMemory()
