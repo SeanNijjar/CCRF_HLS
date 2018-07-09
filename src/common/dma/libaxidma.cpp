@@ -32,7 +32,7 @@
 
 
 // The DMA device structure, and a boolean checking if it's already open
-struct axidma_dev axidma_dev = {0};
+//struct axidma_dev axidma_dev = {0};
 
 /*----------------------------------------------------------------------------
  * Private Helper Functions
@@ -165,12 +165,12 @@ static int probe_channels(axidma_dev_t dev)
     return rc;
 }
 
-static void axidma_callback(int signal, siginfo_t *siginfo, void *context)
+static void axidma_callback(axidma_dev_t dev, int signal, siginfo_t *siginfo, void *context)
 {
     int channel_id;
     dma_channel_t *chan;
 
-    assert(0 <= siginfo->si_int && siginfo->si_int < axidma_dev.num_channels);
+    assert(0 <= siginfo->si_int && siginfo->si_int < dev->num_channels);
 
     // Silence the compiler
     (void)signal;
@@ -178,7 +178,7 @@ static void axidma_callback(int signal, siginfo_t *siginfo, void *context)
 
     // If the user defined a callback for a given channel, invoke it
     channel_id = siginfo->si_int;
-    chan = &axidma_dev.channels[channel_id];
+    chan = &dev->channels[channel_id];
     if (chan->callback != NULL) {
         chan->callback(channel_id, chan->user_data);
     }
@@ -191,6 +191,7 @@ static void axidma_callback(int signal, siginfo_t *siginfo, void *context)
 // TODO: Should really check if real time signal is being used
 static int setup_dma_callback(axidma_dev_t dev)
 {
+    /*
     int rc;
     struct sigaction sigact;
 
@@ -210,7 +211,7 @@ static int setup_dma_callback(axidma_dev_t dev)
         perror("Failed to set the DMA callback signal");
         return rc;
     }
-
+    */
     return 0;
 }
 
@@ -254,12 +255,15 @@ static unsigned long dir_to_ioctl(enum axidma_dir dir)
  * axidma_device. */
 struct axidma_dev *axidma_init(std::string dma_name, std::string dma_mem_name)
 {
-    assert(!axidma_dev.initialized);
+    axidma_dev *dev = new axidma_dev;
+    assert(!dev->initialized);
+
+
 
     // Open the AXI DMA device
-    axidma_dev.fd = open(dma_name.c_str(), O_RDWR|O_EXCL);
-    axidma_dev.fd_mem = open(dma_mem_name.c_str(), PROT_READ|PROT_WRITE|O_SYNC|O_RDWR);
-    if (axidma_dev.fd < 0) {
+    dev->fd = open(dma_name.c_str(), O_RDWR | O_EXCL);
+    dev->fd_mem = open(dma_mem_name.c_str(), O_RDWR | O_SYNC);
+    if (dev->fd < 0) {
         perror("Error opening AXI DMA device");
         fprintf(stderr, "Expected the AXI DMA device at the path `%s`\n",
                 AXIDMA_DEV_PATH);
@@ -267,24 +271,24 @@ struct axidma_dev *axidma_init(std::string dma_name, std::string dma_mem_name)
     }
 
     // Query the AXIDMA device for all of its channels
-    if (probe_channels(&axidma_dev) < 0) {
-        close(axidma_dev.fd);
-        close(axidma_dev.fd_mem);
+    if (probe_channels(dev) < 0) {
+        close(dev->fd);
+        close(dev->fd_mem);
         return NULL;
     }
 
     // TODO: Should really check that signal is not already taken
     /* Setup a real-time signal to indicate when transactions have completed,
      * and request the driver to send them to us. */
-    if (setup_dma_callback(&axidma_dev) < 0) {
-        close(axidma_dev.fd);
-        close(axidma_dev.fd_mem);
+    if (setup_dma_callback(dev) < 0) {
+        close(dev->fd);
+        close(dev->fd_mem);
         return NULL;
     }
 
     // Return the AXI DMA device to the user
-    axidma_dev.initialized = true;
-    return &axidma_dev;
+    dev->initialized = true;
+    return dev;
 }
 
 // Tears down the given AXI DMA device structure
@@ -304,7 +308,7 @@ void axidma_destroy(axidma_dev_t dev)
     }
 
     // Free the device structure
-    axidma_dev.initialized = false;
+    dev->initialized = false;
     return;
 }
 
