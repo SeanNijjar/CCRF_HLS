@@ -9,6 +9,9 @@ enum E_OPERATING_MODES
     OPERATING_MODE_HW_AND_SW
 };
 
+#define ADDR_LOWER(address) (((1l << 32) - 1) & (uintptr_t)address)
+#define ADDR_UPPER(address) ((sizeof(uintptr_t) > 4) ? (((1l << 32) - 1) << 32) & (uintptr_t)address : 0)
+
 #define DEBUG // TODO: move to a makefile variable
 
 #ifdef DEBUG

@@ -88,6 +88,7 @@ driver_test_zynq_loopback_test:
 
 driver_test_zynq:
 	mkdir -p objs
+	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c src/common/dma/axidma_ctrl_func.cpp -o objs/axidma_ctrl_func.o
 	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c src/common/dma/libaxidma.cpp -o objs/libaxidma.o
 	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c src/common/job_descriptor/job_descriptor.cpp -o objs/job_descriptor.o
 	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c src/common/helper.cpp -o objs/helper.o
@@ -96,6 +97,7 @@ driver_test_zynq:
 	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c src/driver/driver.cpp -o objs/driver.o
 	g++ $(CPPFLAGS) -DHW_COMPILE -DZYNQ_COMPILE $(INCLUDES) -c test/driver/driver_test_main.cpp -o objs/driver_test_main.o
 	g++ $(CPPFLAGS) -L/usr/local/include objs/libaxidma.o \
+		objs/axidma_ctrl_func.o \
 		objs/job_descriptor.o \
 		objs/helper.o \
 		objs/utils.o \

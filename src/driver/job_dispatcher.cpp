@@ -28,6 +28,11 @@ JobDispatcher::JobDispatcher(E_DISPATCH_MODE _dispatch_mode) :
     )
 {
     ASSERT(_dispatch_mode == DISPATCH_MODE_EXCLUSIVE_BLOCKING, "Created job dispatched in non-exclusive mode. Only DISPATCH_MODE_EXCLUSIVE is currently supported");
+    
+    const int max_image_size = 4000 * 4000 * sizeof(PIXEL4_T);
+    for (int i = 0; i < 6; ++i) {
+        axidma_input_image_transfer_buffers[i] = (uintptr_t)driver.AxidmaMalloc(max_image_size);
+    }
 }
 
 JobDispatcher::~JobDispatcher()
@@ -52,6 +57,28 @@ JOB_ID_T JobDispatcher::GenerateNewJobID()
     #endif
 }
 
+
+
+bool JobDispatcher::TransferInputImagesToDevice(JobDescriptor &job_descriptor)
+{
+    const int input_image_count = job_descriptor.LDR_IMAGE_COUNT;
+    const int transfer_size = job_descriptor.IMAGE_SIZE() * sizeof(PIXEL4_T);
+    for (int i = 0; i < input_image_count; i++) {
+        const uintptr_t image_pl_addr = (uintptr_t)driver.DeviceMalloc(transfer_size);
+
+        //first DMA write PS mem data to second DMA
+        driver.AxidmaSendData((void*)axidma_input_image_transfer_buffers[i], (void*)job_descriptor.INPUT_IMAGES[i], transfer_size);
+
+        //second DMA write data to PL DMA///////////////////////////////////////////////////////////////
+        bool pl_dma_write_success = driver.PlDmaWrite(image_pl_addr, transfer_size);
+
+        // update the PL to PS DDR address mappings
+        pl_to_ps_output_addr_map[image_pl_addr] = job_descriptor.INPUT_IMAGES[i];
+        job_descriptor.INPUT_IMAGES[i] = image_pl_addr;
+    }
+}
+
+
 /** RETURNS: did_something
  */
 bool JobDispatcher::TryDispatchJob() 
@@ -66,9 +93,11 @@ bool JobDispatcher::TryDispatchJob()
             std::cout << "Sending Job Request" << std::endl;
             JobDescriptor &job_to_submit = pending_jobs.front().job_descriptor;
             uintptr_t ps_addr = job_to_submit.OUTPUT_IMAGE_LOCATION;
-            uintptr_t pl_addr = (uintptr_t)AxidmaMalloc(job_to_submit.IMAGE_SIZE() * sizeof(PIXEL4_T));
+            uintptr_t pl_addr = (uintptr_t)DeviceMalloc(job_to_submit.IMAGE_SIZE() * sizeof(PIXEL4_T));
             pl_to_ps_output_addr_map[pl_addr] = ps_addr;
             job_to_submit.OUTPUT_IMAGE_LOCATION = pl_addr;
+            TransferInputImagesToDevice(job_to_submit);
+
             bool submitted = driver.SendJobRequest(pending_jobs.front());
             if (submitted) {
                 dispatch_request_in_flight = true;
@@ -201,11 +230,20 @@ void JobDispatcher::MainDispatcherThreadLoop()
                     auto job_time = std::chrono::system_clock::now() - job_start_times[job_status.job_ID];
                     auto num_microseconds = std::chrono::duration_cast<std::chrono::microseconds> (job_time);
 
-                    const JobDescriptor &completed_job_descriptor = executing_jobs.front().job_descriptor;
+                    JobDescriptor &completed_job_descriptor = executing_jobs.front().job_descriptor;
                     void *const pl_addr = (void*)completed_job_descriptor.OUTPUT_IMAGE_LOCATION;
                     const int image_size_in_bytes = completed_job_descriptor.IMAGE_SIZE() * sizeof(PIXEL4_T);
                     void *const ps_addr = (void*)pl_to_ps_output_addr_map.at((uintptr_t)pl_addr);
                     const bool pl_to_ps_copy_success = driver.PL_to_PS_DMA(ps_addr, pl_addr, image_size_in_bytes);
+                    completed_job_descriptor.OUTPUT_IMAGE_LOCATION = (uintptr_t)ps_addr;
+
+                    // Restore the PS input image DDR addresses
+                    const int ldr_image_count = completed_job_descriptor.LDR_IMAGE_COUNT;
+                    for (int i = 0; i < ldr_image_count; i++) {
+                        void *const input_image_pl_addr = (void*)completed_job_descriptor.INPUT_IMAGES[i];
+                        completed_job_descriptor.INPUT_IMAGES[i] = pl_to_ps_output_addr_map.at((uintptr_t)input_image_pl_addr);
+                    }
+
                     pl_to_ps_output_addr_map.erase((uintptr_t)pl_addr);
 
                     finished_jobs.push_back({num_microseconds, job_status.job_ID, 

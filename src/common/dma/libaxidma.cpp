@@ -27,30 +27,9 @@
 #include "libaxidma.hpp"          // Local definitions
 #include "axidma_ioctl.hpp"       // The IOCTL interface to AXI DMA
 
-/*----------------------------------------------------------------------------
- * Internal definitions
- *----------------------------------------------------------------------------*/
 
-// A structure that holds metadata about each channel
-typedef struct dma_channel {
-    enum axidma_dir dir;        ///< Direction of the channel
-    enum axidma_type type;      ///< Type of the channel
-    int channel_id;             ///< Integer id of the channel.
-    axidma_cb_t callback;       ///< Callback function for channel completion
-    void *user_data;            ///< User data to pass to the callback
-} dma_channel_t;
 
-// The structure that represents the AXI DMA device
-struct axidma_dev {
-    bool initialized;           ///< Indicates initialization for this struct.
-    int fd;                     ///< File descriptor for the device
-    array_t dma_tx_chans;       ///< Channel id's for the DMA transmit channels
-    array_t dma_rx_chans;       ///< Channel id's for the DMA receive channels
-    array_t vdma_tx_chans;      ///< Channel id's for the VDMA transmit channels
-    array_t vdma_rx_chans;      ///< Channel id's for the VDMA receive channels
-    int num_channels;           ///< The total number of DMA channels
-    dma_channel_t *channels;    ///< All of the VDMA/DMA channels in the system
-};
+
 
 // The DMA device structure, and a boolean checking if it's already open
 struct axidma_dev axidma_dev = {0};
@@ -273,12 +252,13 @@ static unsigned long dir_to_ioctl(enum axidma_dir dir)
 
 /* Initializes the AXI DMA device, returning a new handle to the
  * axidma_device. */
-struct axidma_dev *axidma_init(std::string dma_name)
+struct axidma_dev *axidma_init(std::string dma_name, std::string dma_mem_name)
 {
     assert(!axidma_dev.initialized);
 
     // Open the AXI DMA device
     axidma_dev.fd = open(dma_name.c_str(), O_RDWR|O_EXCL);
+    axidma_dev.fd_mem = open(dma_mem_name.c_str(), PROT_READ|PROT_WRITE|O_SYNC|O_RDWR);
     if (axidma_dev.fd < 0) {
         perror("Error opening AXI DMA device");
         fprintf(stderr, "Expected the AXI DMA device at the path `%s`\n",
@@ -289,6 +269,7 @@ struct axidma_dev *axidma_init(std::string dma_name)
     // Query the AXIDMA device for all of its channels
     if (probe_channels(&axidma_dev) < 0) {
         close(axidma_dev.fd);
+        close(axidma_dev.fd_mem);
         return NULL;
     }
 
@@ -297,6 +278,7 @@ struct axidma_dev *axidma_init(std::string dma_name)
      * and request the driver to send them to us. */
     if (setup_dma_callback(&axidma_dev) < 0) {
         close(axidma_dev.fd);
+        close(axidma_dev.fd_mem);
         return NULL;
     }
 
