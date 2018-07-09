@@ -21,7 +21,7 @@ struct CCRF_UNIT_STATUS_SIGNALS
 };
 
 typedef struct {
-    BYTE_T data[16];
+    BYTE_T data[64];
 } WIDE_DATA_T;
 
 const int MEMORY_SIZE = 2000000000;
