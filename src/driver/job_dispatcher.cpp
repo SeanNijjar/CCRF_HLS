@@ -34,6 +34,7 @@ JobDispatcher::JobDispatcher(E_DISPATCH_MODE _dispatch_mode) :
         axidma_input_image_transfer_buffers[i] = (uintptr_t)driver.AxidmaMalloc(max_image_size);
     }
     axidma_output_image_transfer_buffer = (uintptr_t)driver.AxidmaMalloc(max_image_size);
+    run_main_loop = true;
 }
 
 JobDispatcher::~JobDispatcher()
@@ -62,6 +63,7 @@ JOB_ID_T JobDispatcher::GenerateNewJobID()
 
 bool JobDispatcher::TransferInputImagesToDevice(JobDescriptor &job_descriptor)
 {
+	std::cout<<"TransferInputImagesToDevice"<<std::endl;
     const int input_image_count = job_descriptor.LDR_IMAGE_COUNT;
     const int transfer_size = job_descriptor.IMAGE_SIZE() * sizeof(PIXEL4_T);
     for (int i = 0; i < input_image_count; i++) {
@@ -72,11 +74,17 @@ bool JobDispatcher::TransferInputImagesToDevice(JobDescriptor &job_descriptor)
 
         //second DMA write data to PL DMA///////////////////////////////////////////////////////////////
         bool pl_dma_write_success = driver.PlDmaWrite((void *const)axidma_input_image_transfer_buffers[i], (void *const)job_descriptor.INPUT_IMAGES[i], image_pl_addr, transfer_size);
+        if (!pl_dma_write_success) {
+            std::cout << "pl_dma_write failed" << std::endl;
+		    return false;
+        }
 
         // update the PL to PS DDR address mappings
         pl_to_ps_output_addr_map[image_pl_addr] = job_descriptor.INPUT_IMAGES[i];
         job_descriptor.INPUT_IMAGES[i] = image_pl_addr;
     }
+	std::cout<<"/TransferInputImagesToDevice"<<std::endl;
+	return true;
 }
 
 
@@ -97,13 +105,19 @@ bool JobDispatcher::TryDispatchJob()
             uintptr_t pl_addr = (uintptr_t)DeviceMalloc(job_to_submit.IMAGE_SIZE() * sizeof(PIXEL4_T));
             pl_to_ps_output_addr_map[pl_addr] = ps_addr;
             job_to_submit.OUTPUT_IMAGE_LOCATION = pl_addr;
-            TransferInputImagesToDevice(job_to_submit);
+            bool initial_transfers_successful = TransferInputImagesToDevice(job_to_submit);
+            if (!initial_transfers_successful) {
+                run_main_loop = false;
+                std::cout<<"TryDispatchJob initial transfer failed"<<std::endl;
+                return false;
+            }
 
             bool submitted = driver.SendJobRequest(pending_jobs.front());
             if (submitted) {
                 dispatch_request_in_flight = true;
                 return true;
             } else {
+                std::cout<<"TryDispatchJob failure submit failed"<<std::endl;
                 return false;
             }
             #else
@@ -271,7 +285,10 @@ void JobDispatcher::MainDispatcherThreadLoop()
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
         }
 
-    } while (true);
+    } while (run_main_loop);
+
+    while(active_jobs.size()) active_jobs.clear();
+    while(executing_jobs.size()) executing_jobs.pop();
 }
 
 void JobDispatcher::StartDispatcher()
