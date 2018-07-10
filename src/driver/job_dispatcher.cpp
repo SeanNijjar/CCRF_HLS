@@ -71,7 +71,7 @@ bool JobDispatcher::TransferInputImagesToDevice(JobDescriptor &job_descriptor)
         //driver.AxidmaSendData((void*)axidma_input_image_transfer_buffers[i], (void*)job_descriptor.INPUT_IMAGES[i], transfer_size);
 
         //second DMA write data to PL DMA///////////////////////////////////////////////////////////////
-        bool pl_dma_write_success = driver.PlDmaWrite((void *const)axidma_input_image_transfer_buffers[i], (void *const)job_descriptor.INPUT_IMAGES[i], image_pl_addr, transfer_size);
+        bool pl_dma_write_success = driver.PlDmaWrite((void *const)axidma_input_image_transfer_buffers[i], job_descriptor.INPUT_IMAGES[i], image_pl_addr, transfer_size);
 
         // update the PL to PS DDR address mappings
         pl_to_ps_output_addr_map[image_pl_addr] = job_descriptor.INPUT_IMAGES[i];

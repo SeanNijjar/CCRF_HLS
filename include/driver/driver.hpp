@@ -48,7 +48,7 @@ class ZynqHardwareDriver : public Driver
     ~ZynqHardwareDriver();
 
   public:
-    bool PlDmaWrite(void *const axidma_buffer_data,  void *const user_buffer, const uintptr_t pl_addr, const int transfer_size);
+    bool PlDmaWrite(void *const axidma_transfer_buf, const uintptr_t ps_addr, const uintptr_t pl_addr, const int transfer_size);
     bool AxidmaSendStreamData(void *axidma_buffer_data, void *user_buffer, size_t transfer_size);
     bool SendJobRequest(JobPackage &job);
 
@@ -56,6 +56,7 @@ class ZynqHardwareDriver : public Driver
     bool ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read);
     const uint64_t GetDMAFileSize(std::string dma_file_path);
 
+    bool PL_to_PS_DMA(void *const axidma_transfer_buf, char *const ps_addr, void * const pl_addr, size_t transfer_size);
     bool PL_to_PS_DMA(void *const axidma_transfer_buffer, void *const ps_addr, void * const pl_addr, size_t image_size_in_bytes);
 
     void *DeviceMalloc(size_t size_in_bytes);
@@ -86,6 +87,7 @@ class ZynqHardwareDriver : public Driver
     int output_channel;
     long int output_size; // in Bytes 
     axidma_dev_t axidma_dev; // transfer
+    char *dma_vptr;
     struct dma_transfer trans;
     struct dma_transfer trans_mem;
     const array_t *tx_chans, *rx_chans;
