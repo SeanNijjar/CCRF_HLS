@@ -10,6 +10,9 @@ void axilite_write(volatile void* map_base, int offset, int value);
 void DMA_S2MM(volatile void* map_base, int address_low, int address_high, int size);
 void DMA_MM2S(volatile void* map_base, int address_low, int address_high, int size);
 void timespec_sub(struct timespec *t1, const struct timespec *t2);
+
+#define BUFFER_SIZE 8*1024*1024-4096
+
 #define DMA_BASE	0xA0010000
 #define DMA_RegSize	0x00001000
 

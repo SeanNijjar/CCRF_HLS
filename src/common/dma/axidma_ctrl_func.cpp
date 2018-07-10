@@ -6,7 +6,7 @@ int axilite_read(volatile void* map_base, int offset) {
 	return value;
 }
 
-void axilite_write(volatile void* map_base, int offset, int value) {	
+void axilite_write(volatile void* map_base, int offset, int value) {
 	volatile void* virt_addr = (volatile void*)((char*)map_base + offset);
 	*((unsigned int *) virt_addr) = value;
 }
