@@ -35,14 +35,14 @@ int main(int argc, char *argv[]) {
     // Otherwise, or target use case is 5 LDR images/HDR image
     const int ldr_img_count = (argc == 2) ? atoi(argv[1]) : 5;
 
-    hls::stream<JobDescriptor> input_job_descriptor_queue;
+    hls::stream<JobPackage> input_job_descriptor_queue;
     hls::stream<JOB_COMPLETION_PACKET> jobs_in_progress_queue;
     hls::stream<JOB_SUBTASK> output_subtask_queue;
 
     // Single Job Descriptor
     IMAGE_STACK_T ldr_images;
 
-    PIXEL_T *image_addr = (PIXEL_T*)0x1000;
+    PIXEL_T *image_addr = (PIXEL_T*)1000;
     const int image_w = 1024;
     const int image_h = 1024;
     for (int i = 0; i < ldr_img_count; i++) {
@@ -52,15 +52,31 @@ int main(int argc, char *argv[]) {
 
     // this might bite me in the butt
     JobDescriptor *job_descr = JobDescriptor::Create(ldr_images);
-    input_job_descriptor_queue.write(*job_descr); // This will free the pointer? (maybe it does move under the hood)
+    job_descr->OUTPUT_IMAGE_LOCATION = 54000;
+    JobPackage jobPackage;
+    jobPackage.job_descriptor = *job_descr;
+    jobPackage.job_ID = 1;
+    input_job_descriptor_queue.write(jobPackage); // This will free the pointer? (maybe it does move under the hood)
     //delete job_descr;
     bool threaded = false;
+    const uintptr_t CCRF_HARDWARE_SCRATCHPAD_START = 1000000;
+    const uintptr_t CCRF_HARDWARE_SCRATCHPAD_END = 200000000;
+    bool ccrf_subtask_scheduler_got_data;
     if (threaded) {
         //std::thread ccrf_scheduler_thread(CcrfScheduler<true>, input_job_descriptor_queue, output_subtask_queue, jobs_in_progress_queue);
         //ccrf_scheduler_thread.detach();
         //std::this_thread::sleep_for (std::chrono::seconds(1));
     } else {
-        CcrfSubtaskScheduler<false>(input_job_descriptor_queue, output_subtask_queue, jobs_in_progress_queue);
+    	for (int i = 0; i < 1000; i++) {
+    	CcrfSubtaskScheduler(input_job_descriptor_queue,
+    			output_subtask_queue,
+				jobs_in_progress_queue,
+				CCRF_HARDWARE_SCRATCHPAD_START,
+    			CCRF_HARDWARE_SCRATCHPAD_END,
+    			ccrf_subtask_scheduler_got_data);
+    	}
+
+        //CcrfSubtaskScheduler<false>(input_job_descriptor_queue, output_subtask_queue, jobs_in_progress_queue);
     }
 
     
@@ -68,6 +84,10 @@ int main(int argc, char *argv[]) {
     ASSERT(!jobs_in_progress_queue.empty(), "jobs_in_progress not populated properly");
     ASSERT(!output_subtask_queue.empty(), "output_subtask_queue not populated properly");
     
+	while (!jobs_in_progress_queue.empty()) {
+		jobs_in_progress_queue.read();
+	}
+
     std::vector<JOB_SUBTASK> subtasks;
     while (!output_subtask_queue.empty()) {
         JOB_SUBTASK subtask = output_subtask_queue.read();
@@ -75,6 +95,7 @@ int main(int argc, char *argv[]) {
     }
 
     const int expected_num_subtasks = expected_subtask_count(job_descr->LDR_IMAGE_COUNT);
+    std::cout << "Expected num subtasks = " << expected_num_subtasks << std::endl;
     const int actual_subtask_count = subtasks.size();
     ASSERT(expected_num_subtasks == actual_subtask_count, "wrong number of subtasks generated")
 

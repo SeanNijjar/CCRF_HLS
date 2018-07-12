@@ -67,10 +67,14 @@ bool CcrfQueuesBusy(int queue_id,
 					   );
 
 
-void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
-                          hls::stream<JOB_SUBTASK> &subtask_queue, 
-                          hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress,
-						  bool &ccrf_subtask_scheduler_got_data);
+ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
+                           hls::stream<JOB_SUBTASK> &subtask_queue,
+                           hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress,
+
+ 						  const uintptr_t CCRF_HARDWARE_SCRATCHPAD_START,
+ 						  const uintptr_t CCRF_HARDWARE_SCRATCHPAD_END,
+
+ 						  bool &ccrf_subtask_scheduler_got_data);
 
 int GetAvailableCCRFUnit(CCRF_UNIT_STATUS_SIGNALS ccrf_status_signals[CCRF_COMPUTE_UNIT_COUNT],
                           hls::stream<JOB_SUBTASK> subtask_to_ccrf_queues[CCRF_COMPUTE_UNIT_COUNT]
