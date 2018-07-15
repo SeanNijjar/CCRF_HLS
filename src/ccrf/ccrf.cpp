@@ -128,15 +128,15 @@ void CCRF_Compute(
 
     const int pixels_per_memory_read = 16;
 
-	int in1_offset = job_info_in.input1;
-	int in2_offset = job_info_in.input2;
-	int out_offset = job_info_in.output;
-	int iteration_count = job_info_in.image_size/pixels_per_memory_read;
+	const uintptr_t in1_wide_data_offset = job_info_in.input1 / (pixels_per_memory_read * sizeof(PIXEL4_T));
+	const uintptr_t in2_wide_data_offset = job_info_in.input2 / (pixels_per_memory_read * sizeof(PIXEL4_T));
+	const uintptr_t out_wide_data_offset = job_info_in.output / (pixels_per_memory_read * sizeof(PIXEL4_T));
+	const uintptr_t iteration_count = job_info_in.image_size/pixels_per_memory_read;
 	for (int i = 0; i < iteration_count; i++) {
 	    #pragma HLS pipeline
-        const int input1_pixel_offset = in1_offset+i;
-        const int input2_pixel_offset = in2_offset+i;
-        const int output_pixel_offset = out_offset+i;
+        const uintptr_t input1_pixel_offset = in1_wide_data_offset+i;
+        const uintptr_t input2_pixel_offset = in2_wide_data_offset+i;
+        const uintptr_t output_pixel_offset = out_wide_data_offset+i;
 
         WIDE_DATA_T input1_wide_pixel = memory_bus[input1_pixel_offset];
         #pragma HLS DATA_PACK variable=input1_wide_pixel
@@ -307,54 +307,70 @@ void CCRF_Compute(
         output_wide_pixel.data[0] = CCRF_LUT_BLUE0[LUT_entry_b0];
         output_wide_pixel.data[1] = CCRF_LUT_GREEN0[LUT_entry_g0];
         output_wide_pixel.data[2] = CCRF_LUT_RED0[LUT_entry_r0];
+        output_wide_pixel.data[3] = 255;
         output_wide_pixel.data[4] = CCRF_LUT_BLUE1[LUT_entry_b1];
         output_wide_pixel.data[5] = CCRF_LUT_GREEN1[LUT_entry_g1];
         output_wide_pixel.data[6] = CCRF_LUT_RED1[LUT_entry_r1];
+        output_wide_pixel.data[7] = 255;
         output_wide_pixel.data[8] = CCRF_LUT_BLUE2[LUT_entry_b2];
         output_wide_pixel.data[9] = CCRF_LUT_GREEN2[LUT_entry_g2];
         output_wide_pixel.data[10] = CCRF_LUT_RED2[LUT_entry_r2];
+        output_wide_pixel.data[11] = 255;
         output_wide_pixel.data[12] = CCRF_LUT_BLUE3[LUT_entry_b3];
         output_wide_pixel.data[13] = CCRF_LUT_GREEN3[LUT_entry_g3];
         output_wide_pixel.data[14] = CCRF_LUT_RED3[LUT_entry_r3];
+        output_wide_pixel.data[15] = 255;
 
         output_wide_pixel.data[16] = CCRF_LUT_BLUE4[LUT_entry_b4];
         output_wide_pixel.data[17] = CCRF_LUT_GREEN4[LUT_entry_g4];
         output_wide_pixel.data[18] = CCRF_LUT_RED4[LUT_entry_r4];
+        output_wide_pixel.data[19] = 255;
         output_wide_pixel.data[20] = CCRF_LUT_BLUE5[LUT_entry_b5];
         output_wide_pixel.data[21] = CCRF_LUT_GREEN5[LUT_entry_g5];
         output_wide_pixel.data[22] = CCRF_LUT_RED5[LUT_entry_r5];
+        output_wide_pixel.data[23] = 255;
         output_wide_pixel.data[24] = CCRF_LUT_BLUE6[LUT_entry_b6];
         output_wide_pixel.data[25] = CCRF_LUT_GREEN6[LUT_entry_g6];
         output_wide_pixel.data[26] = CCRF_LUT_RED6[LUT_entry_r6];
+        output_wide_pixel.data[27] = 255;
         output_wide_pixel.data[28] = CCRF_LUT_BLUE7[LUT_entry_b7];
         output_wide_pixel.data[29] = CCRF_LUT_GREEN7[LUT_entry_g7];
         output_wide_pixel.data[30] = CCRF_LUT_RED7[LUT_entry_r7];
+        output_wide_pixel.data[31] = 255;
 
         output_wide_pixel.data[32] = CCRF_LUT_BLUE8[LUT_entry_b8];
         output_wide_pixel.data[33] = CCRF_LUT_GREEN8[LUT_entry_g8];
         output_wide_pixel.data[34] = CCRF_LUT_RED8[LUT_entry_r8];
+        output_wide_pixel.data[35] = 255;
         output_wide_pixel.data[36] = CCRF_LUT_BLUE9[LUT_entry_b9];
         output_wide_pixel.data[37] = CCRF_LUT_GREEN9[LUT_entry_g9];
         output_wide_pixel.data[38] = CCRF_LUT_RED9[LUT_entry_r9];
+        output_wide_pixel.data[39] = 255;
         output_wide_pixel.data[40] = CCRF_LUT_BLUE10[LUT_entry_b10];
         output_wide_pixel.data[41] = CCRF_LUT_GREEN10[LUT_entry_g10];
         output_wide_pixel.data[42] = CCRF_LUT_RED10[LUT_entry_r10];
+        output_wide_pixel.data[43] = 255;
         output_wide_pixel.data[44] = CCRF_LUT_BLUE11[LUT_entry_b11];
         output_wide_pixel.data[45] = CCRF_LUT_GREEN11[LUT_entry_g11];
         output_wide_pixel.data[46] = CCRF_LUT_RED11[LUT_entry_r11];
+        output_wide_pixel.data[47] = 255;
 
         output_wide_pixel.data[48] = CCRF_LUT_BLUE12[LUT_entry_b12];
         output_wide_pixel.data[49] = CCRF_LUT_GREEN12[LUT_entry_g12];
         output_wide_pixel.data[50] = CCRF_LUT_RED12[LUT_entry_r12];
+        output_wide_pixel.data[51] = 255;
         output_wide_pixel.data[52] = CCRF_LUT_BLUE13[LUT_entry_b13];
         output_wide_pixel.data[53] = CCRF_LUT_GREEN13[LUT_entry_g13];
         output_wide_pixel.data[54] = CCRF_LUT_RED13[LUT_entry_r13];
+        output_wide_pixel.data[55] = 255;
         output_wide_pixel.data[56] = CCRF_LUT_BLUE14[LUT_entry_b14];
         output_wide_pixel.data[57] = CCRF_LUT_GREEN14[LUT_entry_g14];
         output_wide_pixel.data[58] = CCRF_LUT_RED14[LUT_entry_r14];
+        output_wide_pixel.data[59] = 255;
         output_wide_pixel.data[60] = CCRF_LUT_BLUE15[LUT_entry_b15];
         output_wide_pixel.data[61] = CCRF_LUT_GREEN15[LUT_entry_g15];
         output_wide_pixel.data[62] = CCRF_LUT_RED15[LUT_entry_r15];
+        output_wide_pixel.data[63] = 255;
 
 	    memory_bus[output_pixel_offset] = output_wide_pixel;
 

@@ -254,7 +254,7 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
             //output_addresses[output] = output_addr;
             output_addresses[output] = CCRF_HARDWARE_SCRATCHPAD_START + scratchpad_offset;
             //output_addr += image_size * sizeof(PIXEL4_T);
-            scratchpad_offset += image_size * sizeof(PIXEL4_T);
+            scratchpad_offset += (image_size * sizeof(PIXEL4_T));
         }
 
         //while(jobs_in_progress.full());
@@ -271,7 +271,7 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
                 new_subtask.input1 = input_addresses[input];
                 new_subtask.input2 = input_addresses[input + 1];
                 new_subtask.output = real_output_addr;
-                ASSERT(real_output_addr + (image_size * sizeof(PIXEL4_T)) < CCRF_HARDWARE_SCRATCHPAD_END, "Out of range output");
+                ASSERT(last_task ? true : real_output_addr + (image_size * sizeof(PIXEL4_T)) < CCRF_HARDWARE_SCRATCHPAD_END, "Out of range output");
                 new_subtask.image_size = image_size;
                 new_subtask.job_ID = current_job_ID;
                 ASSERT(new_subtask.image_size != 0, "Invalid subtask image_size");
