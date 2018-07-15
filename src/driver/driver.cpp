@@ -24,6 +24,7 @@ uintptr_t CCRF_SCRATCHPAD_END_ADDR = (uintptr_t)0x0;
 
 bool ZynqHardwareDriver::PlDmaWrite(void *const axidma_transfer_buf, const uintptr_t ps_addr, const uintptr_t pl_addr, const int transfer_size)
 {
+	std::cout << "PlDmaWrite" << std::endl;
 	memcpy(axidma_transfer_buf, (char *const)ps_addr,transfer_size);
         int tx_channel = axidma_get_dma_tx(axidma_dev)->data[0];
         int size;
@@ -32,25 +33,34 @@ bool ZynqHardwareDriver::PlDmaWrite(void *const axidma_transfer_buf, const uintp
 	uintptr_t pl_addr_tmp = (uintptr_t)pl_addr;
         do {
                 size = left_bytes > BUFFER_SIZE ? BUFFER_SIZE : left_bytes;
+		std::cout << "left_bytes=" << left_bytes << " transfer_size=" << size << std::endl;
+		assert ((uintptr_t)pl_addr_tmp % 4096 == 0);
+		assert ((uintptr_t)input_buf_dummy % 4096 == 0);
                 DMA_S2MM(dma_vptr, ADDR_LOWER(pl_addr_tmp), ADDR_UPPER(pl_addr_tmp), size);
                 axidma_oneway_transfer(axidma_dev, tx_channel, input_buf_dummy, size, true);
                 input_buf_dummy += size;
                 pl_addr_tmp += size;
                 left_bytes -= size;
         } while (left_bytes != 0);
+	std::cout << "/PlDmaWrite" << std::endl;
+	return true;
 }
 
 /*insert all the lines in main function to you code after where you got the final image addr and size. In the future
 I may need your help to insert more code but right now it just like this*/
 bool ZynqHardwareDriver::PL_to_PS_DMA(void *const axidma_transfer_buf, char *const ps_addr, void * const pl_addr, size_t transfer_size)
 {	
+	std::cout << "PL_to_PS_DMA" << std::endl;
         int rx_channel = axidma_get_dma_rx(axidma_dev)->data[0];
         int size;
         int left_bytes = transfer_size;
         char * output_buf_dummy = (char*)axidma_transfer_buf;
 	uintptr_t pl_addr_tmp = (uintptr_t)pl_addr;
         do {
+		assert ((uintptr_t)pl_addr_tmp % 4096 == 0);
+		assert ((uintptr_t)output_buf_dummy % 4096 == 0);
                 size = left_bytes > BUFFER_SIZE ? BUFFER_SIZE : left_bytes;
+		std::cout << "left_bytes=" << left_bytes << " transfer_size=" << size << std::endl;
                 DMA_MM2S(dma_vptr, ADDR_LOWER(pl_addr_tmp), ADDR_UPPER(pl_addr_tmp), size);
                 axidma_oneway_transfer(axidma_dev, rx_channel, output_buf_dummy, size, true);
                 output_buf_dummy += size;
@@ -58,12 +68,14 @@ bool ZynqHardwareDriver::PL_to_PS_DMA(void *const axidma_transfer_buf, char *con
                 left_bytes -= size;
         } while (left_bytes != 0);
 	memcpy(ps_addr, axidma_transfer_buf, transfer_size);
+	std::cout << "/PL_to_PS_DMA" << std::endl;
+	return true;
 }
 
 bool ZynqHardwareDriver::AxidmaSendStreamData(void *axidma_buffer_data, void *user_buffer, size_t transfer_size)
 {
     memcpy(axidma_buffer_data, user_buffer, transfer_size);
-    int rc = axidma_oneway_transfer(axidma_dev, tx_chans->data[0], 
+    int rc = axidma_oneway_transfer(axidma_dev, tx_chans->data[1], 
                                     axidma_buffer_data, 
                                     transfer_size, 
                                     false);
@@ -125,7 +137,8 @@ ZynqHardwareDriver::ZynqHardwareDriver(
     Driver(incoming_queue, outgoing_queue),
     pl_ddr_start_addr(0),
     pl_ddr_last_addr(1l << 32),
-    scratchpad_size_in_bytes(1000000*sizeof(PIXEL4_T)),
+    scratchpad_size_in_bytes(100000000*sizeof(PIXEL4_T)),
+    pl_ddr_current_malloc_addr(0),
     #ifdef LOOPBACK_TEST
     job_package_axidma_buffer_size(4),
     job_status_axidma_buffer_size(4)
@@ -198,7 +211,7 @@ void ZynqHardwareDriver::InitializeHardwareScratchpadMemory()
 {
     int scratchpad_pixel_count = scratchpad_size_in_bytes / sizeof(PIXEL4_T);
     scratchpad_start_addr = (uintptr_t)DeviceMalloc(scratchpad_size_in_bytes);
-    std::cout << "Scratchpad start address = " << (PIXEL_T*)scratchpad_start_addr << std::endl;
+    std::cout << "Scratchpad start address = " << (PIXEL_T*)scratchpad_start_addr << " with size=" << scratchpad_size_in_bytes << std::endl;
     uintptr_t scratchpad_end_addr = (uintptr_t)((char*)scratchpad_start_addr + scratchpad_size_in_bytes);
     JobPackage initialization_message;
     initialization_message.job_ID = JobPackage::INITIALIZATION_PACKET_ID(); //
@@ -223,7 +236,7 @@ void ZynqHardwareDriver::FlushHardware()
 bool ZynqHardwareDriver::ReadResponseQueuePacket(uint8_t *response_message_buffer, uint64_t bytes_to_read)
 {
     int rc = axidma_oneway_transfer(axidma_dev, 
-                                    rx_chans->data[0], 
+                                    rx_chans->data[1], 
                                     job_status_axidma_buffer, 
                                     job_status_axidma_buffer_size, 
                                     true);
@@ -250,12 +263,14 @@ void *ZynqHardwareDriver::AxidmaMalloc(size_t size_in_bytes)
 
 void *ZynqHardwareDriver::DeviceMalloc(size_t size_in_bytes)
 {
-    const int padding = 16;
-    
+    const int padding = 4096;
+   
+    std::cout << "pl_ddr_current_malloc_addr: " << pl_ddr_current_malloc_addr << std::endl; 
     uintptr_t alloced_region_start = pl_ddr_current_malloc_addr;
     uintptr_t alloced_region_end = alloced_region_start + size_in_bytes + padding;
 
     if (scratchpad_start_addr - alloced_region_end <= size_in_bytes + padding) {
+	std::cout << "DEVICE_MALLOC: skipping scratchpad region" << std::endl;
         alloced_region_start = scratchpad_start_addr + scratchpad_size_in_bytes;
         alloced_region_end = alloced_region_start + size_in_bytes + padding;
     }
@@ -263,6 +278,7 @@ void *ZynqHardwareDriver::DeviceMalloc(size_t size_in_bytes)
     if (pl_ddr_last_addr - alloced_region_start <= size_in_bytes + padding) {
         alloced_region_start = 0;
         alloced_region_end = alloced_region_start + size_in_bytes + padding;
+	std::cout << "DEVICE_MALLOC: PL DDR address wrap-around" << std::endl;
     }
 
     pl_ddr_current_malloc_addr = alloced_region_end + padding - (alloced_region_end % padding); // Extra padding in case of wide reads
@@ -270,6 +286,7 @@ void *ZynqHardwareDriver::DeviceMalloc(size_t size_in_bytes)
         pl_ddr_current_malloc_addr = 0;
     }
 
+    std::cout << "DEVICE_MALLOC: " << alloced_region_start << std::endl;
     return (void*)alloced_region_start;
 }
 

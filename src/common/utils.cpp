@@ -66,7 +66,7 @@ IMAGE_T ReadImageFile(std::string image_file_path)
         for (int pixel = 0; pixel < pixel_count; pixel++) {
             PIXEL4_T pixel4_data;
             memcpy(&pixel4_data, &image_matrix.data[pixel*sizeof(PIXEL_T)], sizeof(PIXEL_T));
-            pixel4_data[3] = 0;
+            pixel4_data[3] = -1;
             for (int channel = 0; channel < 4; channel++) {
                 image_matrix_data[pixel][channel] = pixel4_data[channel];
             }

@@ -258,7 +258,7 @@ struct axidma_dev *axidma_init(std::string dma_name, std::string dma_mem_name)
 
     // Open the AXI DMA device
     dma_dev.fd = open(dma_name.c_str(), O_RDWR|O_EXCL|O_SYNC);
-//  dma_dev.fd_mem = open(dma_mem_name.c_str(), O_RDWR | O_SYNC);
+    dma_dev.fd_mem = open(dma_mem_name.c_str(), O_RDWR | O_SYNC);
     if (dma_dev.fd < 0) {
         perror("Error opening AXI DMA device");
         fprintf(stderr, "Expected the AXI DMA device at the path `%s`\n",
@@ -302,6 +302,12 @@ void axidma_destroy(axidma_dev_t dev)
         perror("Failed to close the AXI DMA device");
         assert(false);
     }
+
+    if (close(dev->fd_mem) < 0) {
+        perror("Failed to close the AXI DMA device");
+        assert(false);
+    }
+
 
     // Free the device structure
     dma_dev.initialized = false;
