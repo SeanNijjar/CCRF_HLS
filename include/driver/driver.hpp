@@ -107,8 +107,8 @@ class ZynqHardwareDriver : public Driver
 
     static bool IntervalsOverlapAddress(uintptr_t interval_start, uintptr_t interval_end, uintptr_t address_to_check);
 
-    void InitializeHardwareScratchpadMemory();
     void FlushHardware();
+    void InitializeHardwareScratchpadMemory();
     int TransferFile(dma_transfer trans);
     int ParseInt(char option, uint8_t *arg_str, int *data);
     int ParseDouble(char option, uint8_t *arg_str, double *data);
