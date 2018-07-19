@@ -41,9 +41,20 @@ IMAGE_STACK_T ReadImageStackImages(std::string image_stack_file_list)
     return image_stack;
 }
 
+void TonemapHDRImage(JobDescriptor &job_descriptor)
+{
+    cv::Mat tonemapped_ldr_image;
+    cv::Mat hdr_image(cv::Size(job_descriptor.IMAGE_HEIGHT, job_descriptor.IMAGE_WIDTH),
+                      CV_32UC3,
+                      job_descriptor.OUTPUT_IMAGE_LOCATION);
+    cv::Ptr<cv::TonemapDurand> tonemapper = cv::createTonemapDurand(2.2f);
+    tonemapper->process(hdr_image, tonemapped_ldr_image);
+    memcpy(job_decriptor.OUTPUT_IMAGE_LOCATION, tonemapped_ldr_image, job_descriptor.IMAGE_SIZE() * sizeof(PIXEL4_T));
+}
+
 bool WriteImageToFile(IMAGE_T image, std::string image_file_path)
 {
-    cv::Mat image_data(cv::Size(image.height, image.width), CV_32SC4, image.data);
+    cv::Mat image_data(cv::Size(image.height, image.width), CV_8UC4, image.data);
     bool write_result = cv::imwrite(image_file_path, image_data);//, CV_LOAD_IMAGE_COLOR);
     if (!write_result) {
         std::cout << "Couldn't write image file " << image_file_path << std::endl;
