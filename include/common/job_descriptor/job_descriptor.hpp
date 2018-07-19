@@ -4,10 +4,12 @@
 #include "types.hpp"
 #include "helper.hpp"
 
-#include <cstdint>
+//#ifdef CPP_11
+//#include <cstdint>
+//#endif
 #include <stddef.h>
 #include <string.h>
-#include <memory>
+//#include <memory>
 
 struct JobDescriptor 
 {

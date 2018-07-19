@@ -52,7 +52,8 @@ int main(int argc, char *argv[]) {
 
     // this might bite me in the butt
     JobDescriptor *job_descr = JobDescriptor::Create(ldr_images);
-    job_descr->OUTPUT_IMAGE_LOCATION = 54000;
+    uintptr_t output_location = 54000;
+    job_descr->OUTPUT_IMAGE_LOCATION = output_location;
     JobPackage jobPackage;
     jobPackage.job_descriptor = *job_descr;
     jobPackage.job_ID = 1;
@@ -99,6 +100,12 @@ int main(int argc, char *argv[]) {
     const int actual_subtask_count = subtasks.size();
     ASSERT(expected_num_subtasks == actual_subtask_count, "wrong number of subtasks generated")
 
+    uintptr_t actual_output_location =subtasks[subtasks.size()-1].output;
+    //for(auto subtask : subtasks) {
+    //	std::cout << "output " << subtask.output << std::endl;
+    //}
+    ASSERT(output_location == actual_output_location, "final output location wrong");
+
     std::vector<JOB_SUBTASK> parent_list;
     std::vector<JOB_SUBTASK> children_list;
     parent_list.push_back(subtasks.back());
@@ -120,6 +127,8 @@ int main(int argc, char *argv[]) {
         layer++;
     }
     
+
+
 
     return test_result;
 }

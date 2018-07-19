@@ -1,9 +1,16 @@
 #ifndef TYPES_H
 #define TYPES_H
-#include <cstdint>
 #include <vector>
 
-//typedef uint64_t uintptr_t;
+//#ifdef CPP_11
+#include <cstdint>
+//#else
+//typedef unsigned char uint8_t;
+//typedef unsigned long int uintptr_t;
+//typedef unsigned int uint32_t;
+//typedef unsigned short uint16_t;
+//#endif
+
 
 typedef uint8_t JOB_ID_T;
 
@@ -54,6 +61,7 @@ struct JOB_STATUS_MESSAGE
         JOB_DONE_PACKET
     };
 
+    uint32_t cycle_count;
     uint8_t packet_message_type;
     JOB_ID_T job_ID;
     uint8_t dummy1;
@@ -62,8 +70,9 @@ struct JOB_STATUS_MESSAGE
 
 struct JOB_COMPLETION_PACKET {
     uintptr_t output_address;
-    JOB_ID_T job_ID;
+    uint32_t cycle_count;
     int image_size;
+    JOB_ID_T job_ID;
 };
 
 #endif

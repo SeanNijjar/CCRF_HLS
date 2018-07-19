@@ -6,6 +6,7 @@
 //#include "driver.hpp"
 #include <hls_stream.h>
 #include <cstddef>
+//#include <string.h>
 
 using namespace hls;
 
@@ -30,6 +31,53 @@ void CompletedJobQueueReader(hls::stream<JOB_STATUS_MESSAGE> &response_message_q
     }
 }
 
+
+void JobTimerModule(hls::stream<JobPackage> &jobs_to_schedule_in,
+		            hls::stream<JobPackage> &jobs_to_schedule_out,
+					hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_in,
+					hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_out
+					)
+{
+
+	DO_PRAGMA(HLS STREAM variable=completed_jobs_in depth=COMPLETED_JOBS_QUEUE_DEPTH);
+	DO_PRAGMA(HLS STREAM variable=jobs_to_schedule_in depth=INPUT_JOB_STREAM_DEPTH)
+
+    #pragma HLS RESOURCE core=axis variable=jobs_to_schedule_in port_map=jobs_to_schedule_in
+    #pragma HLS RESOURCE core=axis variable=jobs_to_schedule_out port_map=jobs_to_schedule_out
+    #pragma HLS RESOURCE core=axis variable=completed_jobs_in port_map=completed_jobs_in
+    #pragma HLS RESOURCE core=axis variable=completed_jobs_out port_map=completed_jobs_out
+
+    #pragma HLS DATA_PACK variable=jobs_to_schedule_in
+    #pragma HLS DATA_PACK variable=jobs_to_schedule_out
+    #pragma HLS DATA_PACK variable=completed_jobs_in
+    #pragma HLS DATA_PACK variable=completed_jobs_out
+
+    static uint32_t job_timers[COMPLETED_JOBS_QUEUE_DEPTH] = {0,};
+    static bool active_jobs[COMPLETED_JOBS_QUEUE_DEPTH] = {false,};
+
+    for (int job = 0; job < COMPLETED_JOBS_QUEUE_DEPTH; job++)
+	{
+        #pragma HLS UNROLL
+		if (active_jobs[job-1]) {
+			job_timers[job-1] += 1;
+		} else {
+			job_timers[job-1] = 0;
+		}
+	}
+
+    if (!jobs_to_schedule_in.empty()) {
+    	JobPackage job_to_schedule = jobs_to_schedule_in.read();
+    	active_jobs[job_to_schedule.job_ID-1] = true;
+    	jobs_to_schedule_out.write(job_to_schedule);
+    } else if (!completed_jobs_in.empty()) {
+    	JOB_COMPLETION_PACKET completion_packet = completed_jobs_in.read();
+    	completion_packet.cycle_count = job_timers[completion_packet.job_ID-1];
+    	active_jobs[completion_packet.job_ID-1] = false;
+    	completed_jobs_out.write(completion_packet);
+    }
+}
+
+
 void CcrfSchedulerTopLevel(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
                            hls::stream<JOB_STATUS_MESSAGE_AXI> &response_message_queue,
                            hls::stream<JobPackage> &jobs_to_schedule_queue,
@@ -51,7 +99,7 @@ void CcrfSchedulerTopLevel(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
     #pragma HLS DATA_PACK variable=completed_jobs_queue
     #pragma HLS DATA_PACK variable=incoming_job_requests
     #pragma HLS DATA_PACK variable=jobs_to_schedule_queue struct_level
-    #pragma HLS DATA_PACK variable=response_message_queue struct_level
+    #pragma HLS DATA_PACK variable=response_message_queue
     #pragma HLS STREAM variable=incoming_job_requests depth=32
     #pragma HLS STREAM variable=response_message_queue depth=16
     DO_PRAGMA(HLS STREAM variable=completed_jobs_queue depth=COMPLETED_JOBS_QUEUE_DEPTH);
@@ -88,7 +136,7 @@ void CcrfSchedulerTopLevel(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
 
     if (!job_package_is_active && incoming_jobs_requests_populated) {
     	JOB_PACKAGE_AXI job_package_axi = incoming_job_requests.read();
-    	ap_int<sizeof(JobPackage)*8> job_request_raw_data = job_package_axi.data;//job_package_axi.data;
+    	ap_int<sizeof(JobPackage)*8> job_request_raw_data = job_package_axi.data;
     	active_job_package = *(JobPackage*)&(job_request_raw_data);
     	job_package_is_active = true;
     }
@@ -110,13 +158,16 @@ void CcrfSchedulerTopLevel(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
     				(forward_completion_packet_queue) ? JOB_STATUS_MESSAGE::JOB_DONE_PACKET :
     				                   can_accept_job ? JOB_STATUS_MESSAGE::JOB_ACCEPT_PACKET :
     						                            JOB_STATUS_MESSAGE::JOB_REJECT_PACKET;
-   		completion_packet_for_host.job_ID = read_completion_packet ? completed_jobs_queue.read().job_ID : active_job_package.job_ID;
-    	uint32_t response_message_reply_bits = *(uint32_t*)&completion_packet_for_host;
+        JOB_COMPLETION_PACKET dummy_packet = {0,0,0,0};
+        JOB_COMPLETION_PACKET input_completion_packet = read_completion_packet ? completed_jobs_queue.read() : dummy_packet;
+   		completion_packet_for_host.job_ID = read_completion_packet ? input_completion_packet.job_ID : active_job_package.job_ID;
+   		completion_packet_for_host.cycle_count = read_completion_packet ? input_completion_packet.cycle_count : 0;
+    	ap_int<sizeof(JOB_STATUS_MESSAGE)*8> response_message_reply_bits = *(ap_int<sizeof(JOB_STATUS_MESSAGE)*8>*)&completion_packet_for_host;
     	JOB_STATUS_MESSAGE_AXI axi_stream_packet;
     	axi_stream_packet.last = ap_uint<1>(true);
-    	axi_stream_packet.data = ap_int<32>(response_message_reply_bits);
+    	axi_stream_packet.data = ap_int<sizeof(JOB_STATUS_MESSAGE)*8>(response_message_reply_bits);
     	axi_stream_packet.id = ap_int<1>(0);
-    	axi_stream_packet.keep = 0xF;
+    	axi_stream_packet.keep = 0xFF;
     	axi_stream_packet.strb = 0;
     	axi_stream_packet.dest = 0;
     	axi_stream_packet.user = 0;
@@ -135,66 +186,6 @@ void CcrfSchedulerTopLevel(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
 	CCRF_HARDWARE_SCRATCHPAD_END_OUT = CCRF_HARDWARE_SCRATCHPAD_END;
     forward_completion_packet_queue = !forward_completion_packet_queue;
 
-
-    /*
-    static uintptr_t CCRF_HARDWARE_SCRATCHPAD_START = 1000;
-    static uintptr_t CCRF_HARDWARE_SCRATCHPAD_END = 10000;
-    jobs_ID_offset = offsetof(JobPackage, job_ID);
-
-    CCRF_HARDWARE_SCRATCHPAD_START_OUT = CCRF_HARDWARE_SCRATCHPAD_START;
-    CCRF_HARDWARE_SCRATCHPAD_END_OUT = CCRF_HARDWARE_SCRATCHPAD_END;
-
-    if(!completed_jobs_queue.empty()) {
-    	JOB_COMPLETION_PACKET completed_job = completed_jobs_queue.read();
-    	JOB_STATUS_MESSAGE completion_packet_for_host;
-    	completion_packet_for_host.packet_message_type = JOB_STATUS_MESSAGE::JOB_DONE_PACKET;
-    	completion_packet_for_host.job_ID = completed_job.job_ID;
-        uint32_t response_message_reply_bits = *(uint16_t*)&completion_packet_for_host;
-        JOB_STATUS_MESSAGE_AXI axi_stream_packet;
-        axi_stream_packet.last = ap_uint<1>(true);
-        axi_stream_packet.data = ap_int<32>(response_message_reply_bits);
-        axi_stream_packet.id = ap_int<1>(0);
-        axi_stream_packet.keep = 0xFF;
-        axi_stream_packet.strb = 0;
-        axi_stream_packet.dest = 0;
-        axi_stream_packet.user = 0;
-
-        response_message_queue.write(axi_stream_packet);
-        adding_to_jobs_in_progress = false;
-    } else if (!incoming_job_requests.empty()) {
-        JOB_STATUS_MESSAGE response_packet;
-        JOB_PACKAGE_AXI job_request_axi = incoming_job_requests.read();
-
-        ap_uint<sizeof(JobPackage)> job_request_raw_data = job_request_axi.data;
-        JobPackage job_request = *(JobPackage*)&(job_request_raw_data);
-        ccrf_top_level_scratchpad = job_request.job_ID == 0;
-
-        if (job_request.job_ID == 0) { // Initialize the start and end addresses
-        	CCRF_HARDWARE_SCRATCHPAD_START_OUT = job_request.job_descriptor.INPUT_IMAGES[0];
-        	CCRF_HARDWARE_SCRATCHPAD_END_OUT = job_request.job_descriptor.INPUT_IMAGES[1];
-            CCRF_HARDWARE_SCRATCHPAD_START = CCRF_HARDWARE_SCRATCHPAD_START_OUT;
-            CCRF_HARDWARE_SCRATCHPAD_END = CCRF_HARDWARE_SCRATCHPAD_END_OUT;
-            adding_to_jobs_in_progress = false;
-        } else {
-            response_packet.packet_message_type = (jobs_to_schedule_queue.full()) ? JOB_STATUS_MESSAGE::JOB_REJECT_PACKET : JOB_STATUS_MESSAGE::JOB_ACCEPT_PACKET;
-            response_packet.job_ID = job_request.job_ID;
-            uint32_t response_message_reply_bits = *(uint32_t*)&response_packet;
-            JOB_STATUS_MESSAGE_AXI axi_stream_packet;
-            axi_stream_packet.last = ap_uint<1>(true);
-            axi_stream_packet.data = ap_int<32>(response_message_reply_bits);
-            axi_stream_packet.id = ap_int<1>(0);
-            axi_stream_packet.keep = 0xFF;
-            axi_stream_packet.strb = 0;
-            axi_stream_packet.dest = 0;
-            axi_stream_packet.user = 0;
-            response_message_queue.write(axi_stream_packet);
-            jobs_to_schedule_queue.write(job_request);
-        }
-    } else {
-    	adding_to_jobs_in_progress = false;
-        ccrf_top_level_scratchpad = false;
-    }
-    */
 }
 
 
@@ -202,8 +193,8 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
                           hls::stream<JOB_SUBTASK> &subtask_queue, 
                           hls::stream<JOB_COMPLETION_PACKET> &jobs_in_progress,
 
-						  const uintptr_t CCRF_HARDWARE_SCRATCHPAD_START,
-						  const uintptr_t CCRF_HARDWARE_SCRATCHPAD_END,
+						  const uintptr_t &CCRF_HARDWARE_SCRATCHPAD_START,
+						  const uintptr_t &CCRF_HARDWARE_SCRATCHPAD_END,
 
 						  bool &ccrf_subtask_scheduler_got_data)
 {
@@ -258,7 +249,7 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
         }
 
         //while(jobs_in_progress.full());
-        JOB_COMPLETION_PACKET job_completion_packet = {current_job.OUTPUT_IMAGE_LOCATION, current_job_ID, current_job.IMAGE_SIZE()};
+        JOB_COMPLETION_PACKET job_completion_packet = {current_job.OUTPUT_IMAGE_LOCATION, 0, current_job.IMAGE_SIZE(), current_job_ID};
         jobs_in_progress.write(job_completion_packet);
         for (int layer = 0; layer < ldr_image_count - 1; layer++) {
             const int num_outputs = ldr_image_count - layer - 1;

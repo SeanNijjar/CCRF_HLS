@@ -20,7 +20,7 @@ const int COMPLETED_JOBS_QUEUE_DEPTH = 16;
 static_assert(RESPONSE_QUEUE_DEPTH >= COMPLETED_JOBS_QUEUE_DEPTH, "RESPONSE_QUEUE_DEPTH must be >= COMPLETED_JOBS_QUEUE_DEPTH");
 const int JOBS_TO_SCHEDULE_QUEUE_DEPTH = 16;
 
-typedef ap_axis<32, 1, 1, 1> JOB_STATUS_MESSAGE_AXI;
+typedef ap_axis<sizeof(JOB_STATUS_MESSAGE)*8, 1, 1, 1> JOB_STATUS_MESSAGE_AXI;
 typedef ap_axis<sizeof(JobPackage)*8, 1, 1, 1> JOB_PACKAGE_AXI;
 
 template <typename STREAM_CLASS>
@@ -39,6 +39,11 @@ bool CcrfQueuesBusy(int queue_id,
  }
 
 
+void JobTimerModule(hls::stream<JobPackage> &jobs_to_schedule_in,
+		            hls::stream<JobPackage> &jobs_to_schedule_out,
+					hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_in,
+					hls::stream<JOB_COMPLETION_PACKET> &completed_jobs_out
+					);
 
  void CcrfSchedulerTopLevel(hls::stream<JOB_PACKAGE_AXI> &incoming_job_requests,
                            hls::stream<JOB_STATUS_MESSAGE_AXI> &response_message_queue,

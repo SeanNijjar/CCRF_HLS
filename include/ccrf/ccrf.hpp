@@ -4,6 +4,7 @@
 #include "types.hpp"
 #include "helper.hpp"
 
+#include <ap_int.h>
 #include <hls_stream.h>
 
 
@@ -20,12 +21,22 @@ struct CCRF_UNIT_STATUS_SIGNALS
 
 };
 
+
 typedef struct {
     BYTE_T data[64];
 } WIDE_DATA_T;
 
+typedef ap_uint<sizeof(WIDE_DATA_T)*8> WIDE_DATA_FLAT_T;
+
+static_assert(sizeof(WIDE_DATA_T) == sizeof(WIDE_DATA_FLAT_T), "type size mismatch");
+
+typedef struct {
+	uint32_t data[16];
+} WIDE_PIXEL_WIDE_DATA_T;
+
 const int MEMORY_SIZE = 2000000000;
 const int CCRF_LUT_SIZE = 65536;
+const int INVERSE_CRF_LUT_SIZE = 256;
 
 void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
               hls::stream<JOB_SUBTASK> &input_subtask_queue,
