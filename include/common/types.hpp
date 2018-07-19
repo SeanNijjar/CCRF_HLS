@@ -11,6 +11,7 @@ typedef uint8_t BYTE_T;
 
 typedef BYTE_T PIXEL_T[3];
 typedef BYTE_T PIXEL4_T[4];
+typedef uint32_t HDR_PIXEL4_T[4];
 
 /*
 typedef struct PIXEL_STRUCT {
@@ -54,6 +55,7 @@ struct JOB_STATUS_MESSAGE
         JOB_DONE_PACKET
     };
 
+    uint32_t cycle_count;
     uint8_t packet_message_type;
     JOB_ID_T job_ID;
     uint8_t dummy1;
@@ -62,8 +64,9 @@ struct JOB_STATUS_MESSAGE
 
 struct JOB_COMPLETION_PACKET {
     uintptr_t output_address;
-    JOB_ID_T job_ID;
+    uint32_t cycle_count;
     int image_size;
+    JOB_ID_T job_ID;
 };
 
 #endif
