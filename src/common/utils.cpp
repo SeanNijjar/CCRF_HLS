@@ -43,7 +43,7 @@ IMAGE_STACK_T ReadImageStackImages(std::string image_stack_file_list)
 
 bool WriteImageToFile(IMAGE_T image, std::string image_file_path)
 {
-    cv::Mat image_data(cv::Size(image.height, image.width), CV_8UC4, image.data);
+    cv::Mat image_data(cv::Size(image.height, image.width), CV_32SC4, image.data);
     bool write_result = cv::imwrite(image_file_path, image_data);//, CV_LOAD_IMAGE_COLOR);
     if (!write_result) {
         std::cout << "Couldn't write image file " << image_file_path << std::endl;
