@@ -5,7 +5,23 @@
 #include "helper.hpp"
 
 #include <ap_int.h>
+#include <ap_axi_sdata.h>
 #include <hls_stream.h>
+
+#define BURST_LENGTH 64
+typedef ap_uint<8> PIXEL;
+typedef ap_uint<16> LUT_entry;
+typedef ap_uint<32> hlsuint32;
+typedef uintptr_t BUS_addr;
+
+typedef ap_uint<512> PLDDR_BUS_FLAT;
+
+typedef struct {
+	PIXEL pixel[64];
+} PLDDR_BUS;
+typedef struct {
+	PIXEL ROM[256*256];
+} CCRF_LUT;
 
 
 struct CCRF_UNIT_STATUS_SIGNALS
@@ -21,6 +37,9 @@ struct CCRF_UNIT_STATUS_SIGNALS
 
 };
 
+typedef ap_axis<sizeof(JOB_SUBTASK)*8,1,1,1> JOB_SUBTASK_AXI;
+
+typedef ap_uint</*sizeof(JOB_COMPLETION_PACKET)*/(8+4+4+1) *8> JOB_COMPLETION_PACKET_FLAT;
 
 typedef struct {
     BYTE_T data[64];
@@ -37,6 +56,63 @@ typedef struct {
 const int MEMORY_SIZE = 2000000000;
 const int CCRF_LUT_SIZE = 65536;
 const int INVERSE_CRF_LUT_SIZE = 256;
+
+#define CCRF_LUT_BUNDLE(N) \
+	const BYTE_T CCRF_LUT_BLUE##N [CCRF_LUT_SIZE],\
+	const BYTE_T CCRF_LUT_GREEN##N [CCRF_LUT_SIZE],\
+    const BYTE_T CCRF_LUT_RED##N [CCRF_LUT_SIZE]
+
+#define INVERSE_CRF_LUT_BUNDLE(N) \
+		const uint32_t INVERSE_CRF_LUT_BLUE##N [INVERSE_CRF_LUT_SIZE],\
+		const uint32_t INVERSE_CRF_LUT_GREEN##N [INVERSE_CRF_LUT_SIZE],\
+	    const uint32_t INVERSE_CRF_LUT_RED##N [INVERSE_CRF_LUT_SIZE]
+
+
+void InverseCRF(
+		hls::stream<JOB_COMPLETION_PACKET_FLAT> &CCRF_completed_job,
+		hls::stream<JOB_COMPLETION_PACKET_FLAT> &completed_packet_out,
+		WIDE_DATA_FLAT_T *memory_bus,
+		INVERSE_CRF_LUT_BUNDLE(0),
+		INVERSE_CRF_LUT_BUNDLE(1),
+		INVERSE_CRF_LUT_BUNDLE(2),
+		INVERSE_CRF_LUT_BUNDLE(3)
+);
+
+void CCRF_Compute(
+		PLDDR_BUS_FLAT * plmem,
+
+	    hls::stream<JOB_SUBTASK_AXI> &job_info_in_queue,
+		//hls::stream<JOB_SUBTASK> &job_info_in_queue,
+		hls::stream<bool> &job_done_stream,
+
+		const CCRF_LUT CCRF_LUT_BLUE[16],
+		const CCRF_LUT CCRF_LUT_GREEN[16],
+		const CCRF_LUT CCRF_LUT_RED[16]);
+/*
+void CCRF_Compute(
+	CCRF_LUT_BUNDLE(0),
+	CCRF_LUT_BUNDLE(1),
+	CCRF_LUT_BUNDLE(2),
+	CCRF_LUT_BUNDLE(3),
+	CCRF_LUT_BUNDLE(4),
+	CCRF_LUT_BUNDLE(5),
+	CCRF_LUT_BUNDLE(6),
+	CCRF_LUT_BUNDLE(7),
+	CCRF_LUT_BUNDLE(8),
+	CCRF_LUT_BUNDLE(9),
+	CCRF_LUT_BUNDLE(10),
+	CCRF_LUT_BUNDLE(11),
+	CCRF_LUT_BUNDLE(12),
+	CCRF_LUT_BUNDLE(13),
+	CCRF_LUT_BUNDLE(14),
+	CCRF_LUT_BUNDLE(15),
+
+	WIDE_DATA_FLAT_T *memory_bus,
+
+    hls::stream<JOB_SUBTASK_AXI> &job_info_in_queue,
+	hls::stream<bool> &job_done_stream
+) ;
+*/
 
 void Run_CCRF(CCRF_UNIT_STATUS_SIGNALS &status_signals,
               hls::stream<JOB_SUBTASK> &input_subtask_queue,

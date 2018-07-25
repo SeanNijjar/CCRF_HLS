@@ -49,7 +49,7 @@ void TonemapHDRImage(JobDescriptor &job_descriptor)
                       job_descriptor.OUTPUT_IMAGE_LOCATION);
     cv::Ptr<cv::TonemapDurand> tonemapper = cv::createTonemapDurand(2.2f);
     tonemapper->process(hdr_image, tonemapped_ldr_image);
-    memcpy(job_decriptor.OUTPUT_IMAGE_LOCATION, tonemapped_ldr_image, job_descriptor.IMAGE_SIZE() * sizeof(PIXEL4_T));
+    memcpy(job_decriptor.OUTPUT_IMAGE_LOCATION, tonemapped_ldr_image, job_descriptor.IMAGE_SIZE() * sizeof(HDR_PIXEL3_T));
 }
 
 bool WriteImageToFile(IMAGE_T image, std::string image_file_path)

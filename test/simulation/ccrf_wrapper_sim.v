@@ -2,6 +2,7 @@
 module CcrfWrapper_tb();
 
 reg CLK;
+reg CLK_N;
 reg RESETN;
 
 wire incoming_jobs_queue_populated;
@@ -51,12 +52,15 @@ wire [495:0] jobs_to_schedule_queue_V_TDATA;
 
 /* Add stimulus here */
 always begin
-#5 CLK = ~CLK;
+#5 
+CLK = ~CLK;
+
 end
 
 initial begin
   $timeformat(-9,3,"ns",12);
   CLK = 0;
+  CLK_N = 1;
   RESETN = 0;
   completed_jobs_queue_V_TDATA = 104'b0;
   completed_jobs_queue_V_TVALID = 1'b0;
@@ -90,8 +94,8 @@ initial begin
   incoming_job_requests_V_TDATA = {576{1'b1}};
   incoming_job_requests_V_TDATA[519:512] = 8'd0; // job_ID
   //incoming_job_requests_V_TDATA[495:488] = 8'd0; // job_ID
-  incoming_job_requests_V_TDATA[(16*8)-1:8*8] = 64'd1000000;
-  incoming_job_requests_V_TDATA[(24*8)-1:16*8] = 64'd100000000;
+  incoming_job_requests_V_TDATA[(16*8)-1:8*8] = 64'd300000000;
+  incoming_job_requests_V_TDATA[(24*8)-1:16*8] = 64'd600000000;
   incoming_job_requests_V_TVALID = 1'b1;
   #10
   incoming_job_requests_V_TVALID = 1'b0;// Terminate the write
@@ -102,13 +106,13 @@ initial begin
   incoming_job_requests_V_TDATA = {576{1'b1}};
   incoming_job_requests_V_TDATA[519:512] = 8'd1; // Send an LDR image stack; jobID == 1
   //incoming_job_requests_V_TDATA[495:488] = 8'd1; // Send an LDR image stack; jobID == 1
-  incoming_job_requests_V_TDATA[(8*8)-1:0*8] = 64'd100000; // OUTPUT
-  incoming_job_requests_V_TDATA[(16*8)-1:8*8] = 64'd10000; // INPUT1
-  incoming_job_requests_V_TDATA[(24*8)-1:16*8] = 64'd20000; // INPUT2
-  incoming_job_requests_V_TDATA[(32*8)-1:24*8] = 64'd30000; // INPUT3
-  incoming_job_requests_V_TDATA[(40*8)-1:32*8] = 64'd40000; // INPUT4
-  incoming_job_requests_V_TDATA[(48*8)-1:40*8] = 64'd50000; // INPUT5
-  incoming_job_requests_V_TDATA[(8*(8*7)) + 16 - 1: (8*(8*7))] = 16'd100; // IMAGE WIDTH
+  incoming_job_requests_V_TDATA[(8*8)-1:0*8] = 64'd10000000; // OUTPUT
+  incoming_job_requests_V_TDATA[(16*8)-1:8*8] = 64'd1000000; // INPUT1
+  incoming_job_requests_V_TDATA[(24*8)-1:16*8] = 64'd2000000; // INPUT2
+  incoming_job_requests_V_TDATA[(32*8)-1:24*8] = 64'd3000000; // INPUT3
+  incoming_job_requests_V_TDATA[(40*8)-1:32*8] = 64'd4000000; // INPUT4
+  incoming_job_requests_V_TDATA[(48*8)-1:40*8] = 64'd5000000; // INPUT5
+  incoming_job_requests_V_TDATA[(8*(8*7)) + 16 - 1: (8*(8*7))] = 16'd1000; // IMAGE WIDTH
   incoming_job_requests_V_TDATA[(8*(8*7)) + 32 - 1: (8*(8*7)) + 16] = 16'd100; // IMAGE HEIGHT
   incoming_job_requests_V_TDATA[(8*(8*7)) + 40 - 1: (8*(8*7)) + 32] = 8'd5; // IMAGE COUNT
   response_message_queue_axi_V_TREADY = 1'b1;
