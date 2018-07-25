@@ -255,7 +255,10 @@ void JobDispatcher::MainDispatcherThreadLoop()
                     if (executing_jobs.front().job_ID == job_status.job_ID) {
                         executing_jobs.pop();
                     }
-                    std::cout << "Job " << job_status.job_ID << " completed in " << job_status.cycle_count << " cycles ~" << (double)200000000/(double)job_status.cycle_count << "s" << std::endl;
+
+                    const int clock_frequency_mhz = 166000000;
+                    float frame_time = (double)job_status.cycle_count / (double)clock_frequency_mhz;
+                    std::cout << "Job " << job_status.job_ID << " completed in " << job_status.cycle_count << " cycles ~" << frame_time << "s  or ~" << 1.0 / frame_time << " fps" << std::endl;
                     JOB_COMPLETION_PACKET job_completion_packet({(uintptr_t)ps_addr, job_status.cycle_count, -1, job_status.job_ID});
                     outgoing_finished_job_queue.push_back(job_completion_packet);
                     active_jobs.erase(job_status.job_ID);

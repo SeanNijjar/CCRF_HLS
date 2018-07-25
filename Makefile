@@ -104,7 +104,7 @@ driver_test_zynq:
 		objs/job_dispatcher.o \
 		objs/driver.o \
 		objs/driver_test_main.o \
-		-lopencv_highgui -lopencv_imgcodecs -lopencv_core -lpthread \
+		-lopencv_highgui -lopencv_imgcodecs -lopencv_core -lopencv_photo -lpthread \
 		-o driver_test_main 
 
 #	-lopencv_stitching -lopencv_superres -lopencv_videostab -lopencv_photo -lopencv_aruco \

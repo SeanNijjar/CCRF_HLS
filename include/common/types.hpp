@@ -17,8 +17,10 @@ typedef uint8_t JOB_ID_T;
 typedef uint8_t BYTE_T;
 
 typedef BYTE_T PIXEL_T[3];
+typedef BYTE_T PIXEL3_T[3];
 typedef BYTE_T PIXEL4_T[4];
-typedef uint32_t HDR_PIXEL4_T[4];
+typedef float HDR_PIXEL4_T[4];
+typedef float HDR_PIXEL3_T[3];
 
 /*
 typedef struct PIXEL_STRUCT {
