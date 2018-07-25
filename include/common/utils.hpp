@@ -5,6 +5,12 @@
 #include <string>
 #include <vector>
 
+class JobDescriptor;
+
+void Convert4ChannelTo3Channel(void *const image, const int pixel_count);
+void Convert32bitChannelTo8BitChannels(void *const image, const int pixel_count, const int scaler);
+
+void TonemapHDRImage(JobDescriptor &job_descriptor);
 
 std::vector<std::string> ReadFileContents(std::string file_path);
 

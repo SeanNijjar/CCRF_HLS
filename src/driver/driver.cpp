@@ -287,6 +287,7 @@ void *ZynqHardwareDriver::DeviceMalloc(size_t size_in_bytes)
     }
 
     std::cout << "DEVICE_MALLOC: " << alloced_region_start << std::endl;
+    assert ((uintptr_t)alloced_region_start % padding == 0);
     return (void*)alloced_region_start;
 }
 
