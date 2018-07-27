@@ -10,6 +10,7 @@
 
 #define BURST_LENGTH 64
 typedef ap_uint<8> PIXEL;
+typedef ap_uint<sizeof(PIXEL4_T)*8> PIXEL4_FLAT_T;
 typedef ap_uint<16> LUT_entry;
 typedef ap_uint<32> hlsuint32;
 typedef uintptr_t BUS_addr;
@@ -71,7 +72,8 @@ const int INVERSE_CRF_LUT_SIZE = 256;
 void InverseCRF(
 		hls::stream<JOB_COMPLETION_PACKET_FLAT> &CCRF_completed_job,
 		hls::stream<JOB_COMPLETION_PACKET_FLAT> &completed_packet_out,
-		WIDE_DATA_FLAT_T *memory_bus,
+		//WIDE_DATA_FLAT_T *memory_bus,
+		PIXEL4_FLAT_T *memory_bus,
 		INVERSE_CRF_LUT_BUNDLE(0),
 		INVERSE_CRF_LUT_BUNDLE(1),
 		INVERSE_CRF_LUT_BUNDLE(2),
@@ -79,7 +81,8 @@ void InverseCRF(
 );
 
 void CCRF_Compute(
-		PLDDR_BUS_FLAT * plmem,
+		//PLDDR_BUS_FLAT * plmem,
+		PIXEL4_FLAT_T* plmem,
 
 	    hls::stream<JOB_SUBTASK_AXI> &job_info_in_queue,
 		//hls::stream<JOB_SUBTASK> &job_info_in_queue,
