@@ -101,7 +101,7 @@ int main(int argc, char *argv[])
         JobDescriptor *processed_image_job_descriptor = JobDescriptor::InterpretRawBufferAsJobDescriptor(consolidated_job_buffer);
         Convert4ChannelTo3Channel((void*)processed_image_job_descriptor->OUTPUT_IMAGE_LOCATION, processed_image_job_descriptor->IMAGE_SIZE());
         TonemapHDRImage(*processed_image_job_descriptor);
-        //Convert32bitChannelTo8BitChannels((void*)processed_image_job_descriptor->OUTPUT_IMAGE_LOCATION, processed_image_job_descriptor->IMAGE_SIZE(), 255);
+        Convert32bitChannelTo8BitChannels((void*)processed_image_job_descriptor->OUTPUT_IMAGE_LOCATION, processed_image_job_descriptor->IMAGE_SIZE(), 254);
         IMAGE_T image_to_write_to_file((PIXEL_T*)processed_image_job_descriptor->OUTPUT_IMAGE_LOCATION, processed_image_job_descriptor->IMAGE_WIDTH, processed_image_job_descriptor->IMAGE_HEIGHT);
 	std::string output_image_file_name = "HDR_OUTPUT_";
         output_image_file_name.append(std::to_string(i)).append(".tonemapped.jpg");

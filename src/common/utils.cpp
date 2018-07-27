@@ -109,8 +109,12 @@ void TonemapHDRImage(JobDescriptor &job_descriptor)
         if (output_image_location[i][j] > max_val) {
           max_val = output_image_location[i][j];
         }
+//        if (output_image_location[i][j] >= 1.) {
+//          output_image_location[i][j] = 1.;
+//        }
       }
     }
+
 
     std::cout << "MAX_VAL=" << max_val << " MIN_VAL=" << min_val << std::endl;
 
@@ -123,11 +127,11 @@ void TonemapHDRImage(JobDescriptor &job_descriptor)
 
 bool WriteImageToFile(IMAGE_T image, std::string image_file_path)
 {
-    //cv::Mat image_data(cv::Size(image.height, image.width), CV_8UC3, image.data);
-    cv::Mat image_data(cv::Size(image.height, image.width), CV_32FC3, image.data);
-    image_data = image_data * 255;
-    //bool write_result = cv::imwrite(image_file_path, image_data);//, CV_LOAD_IMAGE_COLOR);
+    cv::Mat image_data(cv::Size(image.height, image.width), CV_8UC3, image.data);
+    //cv::Mat image_data(cv::Size(image.height, image.width), CV_32FC3, image.data);
+    //image_data = image_data * 255;
     bool write_result = cv::imwrite(image_file_path, image_data);//, CV_LOAD_IMAGE_COLOR);
+    //bool write_result = cv::imwrite(image_file_path, image_data);//, CV_LOAD_IMAGE_COLOR);
     if (!write_result) {
         std::cout << "Couldn't write image file " << image_file_path << std::endl;
         return false;
@@ -148,7 +152,7 @@ IMAGE_T ReadImageFile(std::string image_file_path)
         image_matrix_data = new PIXEL4_T[pixel_count];
         for (int pixel = 0; pixel < pixel_count; pixel++) {
             PIXEL4_T pixel4_data;
-            memcpy(&pixel4_data, &image_matrix.data[pixel*sizeof(PIXEL_T)], sizeof(PIXEL_T));
+            memcpy(&pixel4_data, &image_matrix.data[pixel*sizeof(PIXEL3_T)], sizeof(PIXEL3_T));
             pixel4_data[3] = -1;
             for (int channel = 0; channel < 4; channel++) {
                 image_matrix_data[pixel][channel] = pixel4_data[channel];
@@ -164,7 +168,7 @@ IMAGE_T ReadImageFile(std::string image_file_path)
         ASSERT(image_matrix_data[1][2] == image_matrix.data[5], "pixel value mismatch after preprocessing");
 
 	std::cout << "Image pixel values: {B,G,R,A}: " << std::endl;
-        for (int pixel = 0; pixel < 2; pixel++) {
+        for (int pixel = 0; pixel < 16; pixel++) {
             std::cout << " {";
             for (int channel = 0; channel < 4; channel++) {
 		if (channel > 0) {
@@ -174,6 +178,7 @@ IMAGE_T ReadImageFile(std::string image_file_path)
             }
             std::cout << " }";
         }
+        std::cout << std::endl;
     }
 
     
