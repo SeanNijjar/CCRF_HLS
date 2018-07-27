@@ -246,6 +246,7 @@ void CcrfSubtaskScheduler(hls::stream<JobPackage> &input_jobs,
             output_addresses[output] = CCRF_HARDWARE_SCRATCHPAD_START + scratchpad_offset;
             //output_addr += image_size * sizeof(PIXEL4_T);
             scratchpad_offset += (image_size * sizeof(PIXEL4_T));
+            scratchpad_offset += (4096 - scratchpad_offset % 4096);
         }
 
         //while(jobs_in_progress.full());
